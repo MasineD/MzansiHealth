@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import emailjs from '@emailjs/browser';
 import { FaBars, FaTimes, FaGoogle, FaEnvelope, FaLock, FaStar, FaPaperPlane, FaHeartbeat, FaShieldAlt, FaHospital, FaPhoneAlt, FaPlusCircle, FaCheckCircle,FaUser,FaIdCard,FaPhone,FaUserTag
 } from 'react-icons/fa';
 
@@ -106,17 +107,49 @@ const Home = ({ setUser }) => {
   };
 
   // Contact form submit handler
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
     if (!contactEmail || !contactMessage) {
       setContactStatus({ type: 'error', message: 'Please provide email and message.' });
       return;
     }
-    setContactStatus({ type: 'success', message: 'Thank you! Your message has been sent.' });
-    setContactEmail('');
-    setContactSubject('');
-    setContactMessage('');
-    setTimeout(() => setContactStatus(null), 5000);
+
+    setContactStatus({ type: 'info', message: 'Sending message...' });
+
+    try {
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID?.trim() || "service_jmvbt9z";
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID?.trim() || "template_fqbf22j";
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY?.trim() || "yhO5DaRFwYK2N82yd";
+
+      if (!serviceId || !templateId || !publicKey) {
+        throw new Error('Email configuration is missing.');
+      }
+
+      await emailjs.send(
+        serviceId,
+        templateId,
+        {
+          from_email: contactEmail,
+          reply_to: contactEmail,
+          subject: contactSubject || 'New Contact Us Message',
+          message: contactMessage
+        },
+        publicKey
+      );
+
+      setContactStatus({ type: 'success', message: 'Thank you! Your message has been sent successfully.' });
+      setContactEmail('');
+      setContactSubject('');
+      setContactMessage('');
+    } catch (err) {
+      console.error('EmailJS Error:', err);
+      setContactStatus({ 
+        type: 'error', 
+        message: err.text || err.message || 'Failed to send message. Please try again later.' 
+      });
+    } finally {
+      setTimeout(() => setContactStatus(null), 6000);
+    }
   };
 
   const hospitals = [
@@ -280,18 +313,6 @@ const Home = ({ setUser }) => {
                           onChange={(e) => setPassword(e.target.value)}
                           className='w-full pl-11 pr-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
                         />
-                      </div>
-                    </div>
-
-                    <div className='flex justify-between items-center text-xs font-semibold'>
-                      <span className='text-gray-500 uppercase tracking-wide'>Continue with:</span>
-                      <div className='flex items-center gap-3'>
-                        <button type="button" className='cursor-pointer text-gray-400 hover:text-white flex items-center gap-1.5 border border-white/10 bg-white/5 py-1 px-2.5 rounded-lg text-[10px] transition-colors'>
-                          <FaGoogle className='text-red-400' /> Google
-                        </button>
-                        <button type="button" className='cursor-pointer text-gray-400 hover:text-white flex items-center gap-1.5 border border-white/10 bg-white/5 py-1 px-2.5 rounded-lg text-[10px] transition-colors'>
-                          <FaEnvelope className='text-green-400' /> Email
-                        </button>
                       </div>
                     </div>
 
@@ -483,7 +504,7 @@ const Home = ({ setUser }) => {
               <div className='space-y-4'>
                 <h3 className='text-xl font-bold text-white uppercase tracking-wider'>Key Features</h3>
                 <div className='flex flex-wrap gap-3'>
-                  {['Feature 1 (Prescriptions)', 'Feature 2 (Referrals)', 'Feature 3 (Consults)'].map((feat, idx) => (
+                  {['Patient Follow-up', 'Consultations', 'Referrals'].map((feat, idx) => (
                     <span key={idx} className='bg-green-500/10 text-green-400 border border-green-500/20 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm'>
                       {feat}
                     </span>
@@ -508,23 +529,6 @@ const Home = ({ setUser }) => {
             </div>
           </div>
 
-          {/* Hospital Carousel at bottom of About */}
-          <div className='relative w-full overflow-hidden mask-gradient border-t border-white/5 pt-8'>
-            <div className='animate-scroll gap-4 flex'>
-              {hospitals.reverse().map((hosp, idx) => (
-                <div key={`about-${idx}`} className='bg-white/5 border border-white/10 hover:border-green-500/30 rounded-xl px-5 py-3 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors duration-300'>
-                  <FaHospital className='text-green-500 text-xs' />
-                  <span>{hosp}</span>
-                </div>
-              ))}
-              {hospitals.map((hosp, idx) => (
-                <div key={`about-dup-${idx}`} className='bg-white/5 border border-white/10 hover:border-green-500/30 rounded-xl px-5 py-3 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors duration-300'>
-                  <FaHospital className='text-green-500 text-xs' />
-                  <span>{hosp}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
