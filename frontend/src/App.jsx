@@ -2,8 +2,7 @@ import React,{ useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
+
 import Dashboard from './pages/Dashboard';
 import NotFound from './components/NotFound';
 import axios from 'axios';
@@ -44,9 +43,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Home />} />
-        <Route path="/login" element={user ? <Dashboard user={user} setUser={setUser} /> : <Login setUser={setUser} />} />    {/* If the user is already logged in, redirect to the dashboard, otherwise show the login page */ }
-        <Route path="/register" element={user ? <Dashboard user={user} setUser={setUser} /> : <Register setUser={setUser} />} />
+        <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Home setUser={setUser} />} />
         { user && <Route path="/dashboard" element={<Dashboard user={user} setUser={setUser} />}/> } {/* Only render the dashboard route if the user is logged in */ }
         <Route path="*" element={<NotFound />} /> {/* A catch-all route for undefined paths */ }
       </Routes>
