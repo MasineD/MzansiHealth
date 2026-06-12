@@ -9,7 +9,7 @@ import authRoutes from './routes/auth.js';   //Importing the authentication rout
 dotenv.config();
 const app = express();
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',   //Allows requests from the specified client URL, which is typically the frontend application running on a different port during development.
+    origin: process.env.CLIENT_URL || 'http://localhost:5174',   //Allows requests from the specified client URL, which is typically the frontend application running on a different port during development.
     credentials: true   //Enables sending cookies and other credentials in cross-origin requests, which is necessary for maintaining user sessions and authentication state between the frontend and backend.
 }));
 app.use(express.json());        //Middleware to parse incoming JSON requests and make the data available in req.body. This is essential for handling API requests that send data in JSON format, such as user registration and login requests.
