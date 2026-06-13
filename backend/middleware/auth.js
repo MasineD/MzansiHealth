@@ -10,7 +10,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);   //Verifies the JWT token using the secret key stored in environment variables.
-        const user = await pool.query('SELECT id, fullname, identity, email, phone_number FROM users.user_profiles WHERE id = $1',
+        const user = await pool.query('SELECT id, fullname, identity, email, phone_number, role, organization FROM users.user_profiles WHERE id = $1',
             [decoded.id]);   //Queries the database to find the user associated with the verified token.
         if(user.rows.length === 0) {   //If no user is found, it returns a 401 Unauthorized response with an error message.
             return res.status(401).json({ message: 'Not authorized, user not found' });
