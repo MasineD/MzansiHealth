@@ -268,6 +268,7 @@ const PatientDashboard = ({ user, handleLogout }) => {
             <header className='mb-12 pb-6 border-b border-purple-500/20'>
               <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
               <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
+              <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -524,12 +525,8 @@ const AdminDashboard = ({ user, handleLogout }) => {
   const [organizationsCount, setOrganizationsCount] = React.useState(0);
   const [activeTab, setActiveTab] = React.useState('overview');
 
-  // --- Mock Databases for Admin Features ---
-  const [patients, setPatients] = React.useState([
-    { id: 1, fullname: "Thabo Cele", identity: "9508125432087", phone_number: "0711234567", email: "thabo@cele.co.za", gender: "Male", age: 31, organization: user.organization },
-    { id: 2, fullname: "Nomvula Khumalo", identity: "8804030987182", phone_number: "0829876543", email: "nomvula@khumalo.org", gender: "Female", age: 38, organization: user.organization },
-    { id: 3, fullname: "Johan Botha", identity: "7011225091083", phone_number: "0605551234", email: "johan@botha.net", gender: "Male", age: 55, organization: user.organization }
-  ]);
+  // --- Patients Database ---
+  const [patients, setPatients] = React.useState([]);
 
   const [referrals, setReferrals] = React.useState([
     { id: 1, patientName: "Thabo Cele", reason: "Cardiac consultation follow-up", source: "Mitchells Plain Clinic", destination: user.organization || "Cape Town Clinic", status: "Pending", type: "Incoming" },
@@ -567,9 +564,31 @@ const AdminDashboard = ({ user, handleLogout }) => {
   ]);
 
   // --- Form Input States ---
-  const [newPatient, setNewPatient] = React.useState({ fullname: '', identity: '', phone_number: '', email: '', gender: 'Male', age: '' });
+  const [newPatient, setNewPatient] = React.useState({
+    fullname: '',
+    identity: '',
+    gender: 'Male',
+    password: '',
+    email: '',
+    phone_number: '',
+    diagnosis: '',
+    house_number: '',
+    surbub: '',
+    municipality: '',
+    city: '',
+    nok_fullname: '',
+    nok_phone: '',
+    nok_email: ''
+  });
   const [newReferral, setNewReferral] = React.useState({ patientName: '', reason: '', source: '', destination: '', type: 'Incoming' });
-  const [newChw, setNewChw] = React.useState({ fullname: '', identity: '', phone_number: '', email: '', area: '' });
+  const [newChw, setNewChw] = React.useState({
+    employee_id: '',
+    fullname: '',
+    identity: '',
+    password: '',
+    email: '',
+    phone_number: ''
+  });
   const [newTask, setNewTask] = React.useState({ title: '', desc: '', priority: 'High', deadline: '' });
   const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
   const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
@@ -584,12 +603,24 @@ const AdminDashboard = ({ user, handleLogout }) => {
     const fetchAdminData = async () => {
       try {
         setLoading(true);
-        const [usersRes, orgsRes] = await Promise.all([
+        const [usersRes, orgsRes, patientsRes, chwsRes] = await Promise.all([
           axios.get('/api/auth/users'),
-          axios.get('/api/auth/organizations')
+          axios.get('/api/auth/organizations'),
+          axios.get('/api/patients'),
+          axios.get('/api/chw')
         ]);
         setUsers(usersRes.data.users || []);
         setOrganizationsCount(orgsRes.data.organizations?.length || 0);
+        setPatients(patientsRes.data.patients || []);
+        
+        const loadedChws = (chwsRes.data.chws || []).map(c => ({
+          ...c,
+          tasks: c.tasks || []
+        }));
+        setChws(loadedChws);
+        if (loadedChws.length > 0) {
+          setSelectedChwId(loadedChws[0].id);
+        }
       } catch (err) {
         console.error("Failed to fetch admin dashboard data:", err);
         setError(err.response?.data?.message || "Failed to load dashboard data");
@@ -601,25 +632,44 @@ const AdminDashboard = ({ user, handleLogout }) => {
     fetchAdminData();
   }, []);
 
-  const totalUsers = users.length;
+  const totalUsers = users.length + patients.length;
   const dbStaffCount = users.filter(u => u.role?.toLowerCase() === 'staff').length;
   const adminCount = users.filter(u => u.role?.toLowerCase() === 'admin').length;
-  const patientCount = users.filter(u => u.role?.toLowerCase() === 'patient' || !u.role).length;
+  const patientCount = patients.length;
 
   const activeChw = chws.find(c => c.id === selectedChwId);
 
   // --- Form Submit Handlers (State-based updates) ---
-  const handleRegisterPatient = (e) => {
+  const handleRegisterPatient = async (e) => {
     e.preventDefault();
-    if (!newPatient.fullname || !newPatient.identity || !newPatient.phone_number) return;
-    const patientToAdd = {
-      id: patients.length + 1,
-      ...newPatient,
-      age: parseInt(newPatient.age) || 30,
-      organization: user.organization
-    };
-    setPatients([...patients, patientToAdd]);
-    setNewPatient({ fullname: '', identity: '', phone_number: '', email: '', gender: 'Male', age: '' });
+    if (!newPatient.fullname || !newPatient.identity || !newPatient.gender || !newPatient.password || !newPatient.diagnosis || !newPatient.nok_fullname) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const res = await axios.post('/api/patients', newPatient);
+      setPatients([res.data.patient, ...patients]);
+      setNewPatient({
+        fullname: '',
+        identity: '',
+        gender: 'Male',
+        password: '',
+        email: '',
+        phone_number: '',
+        diagnosis: '',
+        house_number: '',
+        surbub: '',
+        municipality: '',
+        city: '',
+        nok_fullname: '',
+        nok_phone: '',
+        nok_email: ''
+      });
+      alert("Patient registered successfully!");
+    } catch (err) {
+      console.error("Failed to register patient:", err);
+      alert(err.response?.data?.message || "Failed to register patient");
+    }
   };
 
   const handleCreateReferral = (e) => {
@@ -636,16 +686,33 @@ const AdminDashboard = ({ user, handleLogout }) => {
     setNewReferral({ patientName: '', reason: '', source: '', destination: '', type: 'Incoming' });
   };
 
-  const handleRegisterChw = (e) => {
+  const handleRegisterChw = async (e) => {
     e.preventDefault();
-    if (!newChw.fullname || !newChw.identity || !newChw.area) return;
-    const chwToAdd = {
-      id: chws.length + 1,
-      ...newChw,
-      tasks: []
-    };
-    setChws([...chws, chwToAdd]);
-    setNewChw({ fullname: '', identity: '', phone_number: '', email: '', area: '' });
+    if (!newChw.employee_id || !newChw.fullname || !newChw.identity || !newChw.password) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const res = await axios.post('/api/chw', newChw);
+      const chwToAdd = {
+        ...res.data.chw,
+        tasks: []
+      };
+      setChws([chwToAdd, ...chws]);
+      setSelectedChwId(chwToAdd.id);
+      setNewChw({
+        employee_id: '',
+        fullname: '',
+        identity: '',
+        password: '',
+        email: '',
+        phone_number: ''
+      });
+      alert("Community Health Worker registered successfully!");
+    } catch (err) {
+      console.error("Failed to register CHW:", err);
+      alert(err.response?.data?.message || "Failed to register CHW");
+    }
   };
 
   const handleAssignTask = (e) => {
@@ -885,79 +952,224 @@ const AdminDashboard = ({ user, handleLogout }) => {
                 Patients for {user.organization || 'Cape Town Clinic'}
               </h2>
               <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
-                {patients.map(p => (
-                  <div key={p.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex justify-between items-center'>
-                    <div>
-                      <h3 className='font-bold text-sm'>{p.fullname}</h3>
-                      <p className='text-xs text-gray-500'>ID: {p.identity} | Age: {p.age} | {p.gender}</p>
-                    </div>
-                    <div className='text-right text-xs text-gray-400'>
-                      <p>{p.phone_number}</p>
-                      <p className='mt-0.5'>{p.email}</p>
-                    </div>
+                {patients.length === 0 ? (
+                  <div className='text-center py-12 text-gray-500 text-sm'>
+                    No registered patients found.
                   </div>
-                ))}
+                ) : (
+                  patients.map(p => (
+                    <div key={p.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+                      <div className='flex-1 pr-2 text-left'>
+                        <h3 className='font-bold text-sm text-violet-300'>{p.fullname}</h3>
+                        <p className='text-xs text-gray-300 mt-1'><span className='font-semibold text-gray-400'>Identity:</span> {p.identity} | <span className='font-semibold text-gray-400'>Gender:</span> {p.gender}</p>
+                        <p className='text-xs text-gray-300 mt-0.5'><span className='font-semibold text-gray-400'>Diagnosis:</span> {p.diagnosis}</p>
+                        {(p.house_number || p.surbub || p.city) && (
+                          <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Address:</span> {p.house_number || ''} {p.surbub || ''} {p.city || ''}</p>
+                        )}
+                        <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Next of Kin:</span> {p.nok_fullname} {p.nok_phone ? `(${p.nok_phone})` : ''}</p>
+                      </div>
+                      <div className='text-right text-xs text-gray-400 shrink-0 md:border-l md:border-white/5 md:pl-4'>
+                        <p className='font-medium text-gray-300'>{p.phone_number || 'No Phone'}</p>
+                        <p className='mt-0.5 text-gray-400'>{p.email || 'No Email'}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit overflow-y-auto max-h-[85vh] custom-scrollbar'>
+              <h2 className='text-lg font-bold flex items-center gap-2 mb-4 sticky top-0 bg-[#0c0f13] py-2 z-10'>
                 <FaPlusCircle className='text-fuchsia-400' />
                 Register New Patient
               </h2>
-              <form onSubmit={handleRegisterPatient} className='space-y-3.5'>
-                <input 
-                  type="text" 
-                  placeholder="Full Name" 
-                  value={newPatient.fullname} 
-                  onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="ID Number (13 digits)" 
-                  value={newPatient.identity} 
-                  onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="Phone Number" 
-                  value={newPatient.phone_number} 
-                  onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="email" 
-                  placeholder="Email Address" 
-                  value={newPatient.email} 
-                  onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                />
-                <div className='grid grid-cols-2 gap-2'>
-                  <select 
-                    value={newPatient.gender} 
-                    onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
-                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
-                  >
-                    <option value="Male" className='bg-slate-900'>Male</option>
-                    <option value="Female" className='bg-slate-900'>Female</option>
-                    <option value="Other" className='bg-slate-900'>Other</option>
-                  </select>
-                  <input 
-                    type="number" 
-                    placeholder="Age" 
-                    value={newPatient.age} 
-                    onChange={e => setNewPatient({ ...newPatient, age: e.target.value })} 
-                    className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                    required
-                  />
+              <form onSubmit={handleRegisterPatient} className='space-y-4 text-left'>
+                
+                {/* --- Section 1: Core Details --- */}
+                <div className='space-y-3.5'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>1. Core Profile</h3>
+                  
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Sipho Nkosi" 
+                      value={newPatient.fullname} 
+                      onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>ID Number <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="13-digit SA ID" 
+                        value={newPatient.identity} 
+                        onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Gender <span className='text-red-400'>*</span></label>
+                      <select 
+                        value={newPatient.gender} 
+                        onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
+                        className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                        required
+                      >
+                        <option value="Male" className='bg-slate-900'>Male</option>
+                        <option value="Female" className='bg-slate-900'>Female</option>
+                        <option value="Other" className='bg-slate-900'>Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="password" 
+                        placeholder="Password for login" 
+                        value={newPatient.password} 
+                        onChange={e => setNewPatient({ ...newPatient, password: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Diagnosis <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Chronic Hypertension" 
+                        value={newPatient.diagnosis} 
+                        onChange={e => setNewPatient({ ...newPatient, diagnosis: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="patient@gmail.com" 
+                        value={newPatient.email} 
+                        onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0712345678" 
+                        value={newPatient.phone_number} 
+                        onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
                 </div>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Register Patient
+
+                {/* --- Section 2: Residential Address --- */}
+                <div className='space-y-3.5 pt-2'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>2. Location Details</h3>
+                  
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>House Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Room 4 / 12" 
+                        value={newPatient.house_number} 
+                        onChange={e => setNewPatient({ ...newPatient, house_number: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Surbub</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Khayelitsha" 
+                        value={newPatient.surbub} 
+                        onChange={e => setNewPatient({ ...newPatient, surbub: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Municipality</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. City of Cape Town" 
+                        value={newPatient.municipality} 
+                        onChange={e => setNewPatient({ ...newPatient, municipality: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>City</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Cape Town" 
+                        value={newPatient.city} 
+                        onChange={e => setNewPatient({ ...newPatient, city: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- Section 3: Next of Kin --- */}
+                <div className='space-y-3.5 pt-2'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>3. Next of Kin</h3>
+                  
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Nomvula Nkosi" 
+                      value={newPatient.nok_fullname} 
+                      onChange={e => setNewPatient({ ...newPatient, nok_fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0823456789" 
+                        value={newPatient.nok_phone} 
+                        onChange={e => setNewPatient({ ...newPatient, nok_phone: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="nok@example.com" 
+                        value={newPatient.nok_email} 
+                        onChange={e => setNewPatient({ ...newPatient, nok_email: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-4 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
+                  Register Patient Profile
                 </button>
               </form>
             </div>
@@ -1117,18 +1329,18 @@ const AdminDashboard = ({ user, handleLogout }) => {
                         selectedChwId === c.id ? 'border-violet-500 bg-white/10' : 'border-white/5 hover:border-violet-500/20'
                       }`}
                     >
-                      <div>
-                        <h3 className='font-bold text-sm'>{c.fullname}</h3>
-                        <p className='text-xs text-gray-400'>Identity: {c.identity} | Area: <span className='text-violet-300'>{c.area}</span></p>
-                        {c.tasks.length > 0 && (
+                      <div className='text-left'>
+                        <h3 className='font-bold text-sm text-violet-300'>{c.fullname}</h3>
+                        <p className='text-xs text-gray-400'>Identity: {c.identity} | Employee ID: <span className='text-violet-300'>{c.employee_id}</span></p>
+                        {c.tasks && c.tasks.length > 0 && (
                           <p className='text-[10px] text-fuchsia-300 mt-1 font-medium'>
                             Latest Task: "{c.tasks[0].title}" ({c.tasks[0].status})
                           </p>
                         )}
                       </div>
                       <div className='text-right text-xs text-gray-500'>
-                        <p>{c.phone_number}</p>
-                        <p>{c.email}</p>
+                        <p>{c.phone_number || 'No Phone'}</p>
+                        <p>{c.email || 'No Email'}</p>
                       </div>
                     </div>
                   ))}
@@ -1141,48 +1353,75 @@ const AdminDashboard = ({ user, handleLogout }) => {
                   <FaPlusCircle className='text-fuchsia-400' />
                   Register CHW
                 </h2>
-                <form onSubmit={handleRegisterChw} className='space-y-3.5'>
-                  <input 
-                    type="text" 
-                    placeholder="Full Name" 
-                    value={newChw.fullname} 
-                    onChange={e => setNewChw({ ...newChw, fullname: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="ID Number (13 digits)" 
-                    value={newChw.identity} 
-                    onChange={e => setNewChw({ ...newChw, identity: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Phone Number" 
-                    value={newChw.phone_number} 
-                    onChange={e => setNewChw({ ...newChw, phone_number: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="email" 
-                    placeholder="Email (Optional)" 
-                    value={newChw.email} 
-                    onChange={e => setNewChw({ ...newChw, email: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Assigned Outreach Area" 
-                    value={newChw.area} 
-                    onChange={e => setNewChw({ ...newChw, area: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
+                <form onSubmit={handleRegisterChw} className='space-y-3.5 text-left'>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Employee ID <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. CHW-2026-904" 
+                      value={newChw.employee_id} 
+                      onChange={e => setNewChw({ ...newChw, employee_id: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Sizwe Dube" 
+                      value={newChw.fullname} 
+                      onChange={e => setNewChw({ ...newChw, fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>SA ID Number <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="13-digit SA ID" 
+                        value={newChw.identity} 
+                        onChange={e => setNewChw({ ...newChw, identity: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="password" 
+                        placeholder="Password for login" 
+                        value={newChw.password} 
+                        onChange={e => setNewChw({ ...newChw, password: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="chw@ubuntuhealth.org" 
+                      value={newChw.email} 
+                      onChange={e => setNewChw({ ...newChw, email: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number (10 digits)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 0731112222" 
+                      value={newChw.phone_number} 
+                      onChange={e => setNewChw({ ...newChw, phone_number: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                    />
+                  </div>
                   <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                    Register CHW
+                    Register CHW Profile
                   </button>
                 </form>
               </div>

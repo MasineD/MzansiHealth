@@ -1,5 +1,5 @@
 // ================== Home Page Component with Premium Theme & High Aesthetics ==================
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import emailjs from '@emailjs/browser';
@@ -45,7 +45,7 @@ const Home = ({ setUser }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (registerForm.role === 'staff') {
       fetchOrganizations();
     }
