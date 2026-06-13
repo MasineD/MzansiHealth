@@ -37,6 +37,7 @@ const StaffDashboard = ({ user, handleLogout }) => {
     { id: 'prescriptions', label: 'E-Prescriptions', icon: <FaPrescriptionBottle /> },
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
     { id: 'telehealth', label: 'Telehealth', icon: <FaHeartbeat /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -181,6 +182,10 @@ const StaffDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -204,6 +209,7 @@ const PatientDashboard = ({ user, handleLogout }) => {
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
     { id: 'prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottle /> },
     { id: 'registry', label: 'Medical Registry', icon: <FaFileMedicalAlt /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -338,6 +344,10 @@ const PatientDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -360,7 +370,9 @@ const ChwDashboard = ({ user, handleLogout }) => {
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
     { id: 'households', label: 'Households', icon: <FaUsers /> },
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
-    { id: 'outreach', label: 'Outreach Events', icon: <FaCalendarAlt /> },
+    { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'outreach', label: 'Outreach Events', icon: <FaClock /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -503,6 +515,10 @@ const ChwDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -513,6 +529,573 @@ const ChwDashboard = ({ user, handleLogout }) => {
           </div>
         )}
       </main>
+    </div>
+  );
+};
+
+// --- Reusable Appointments Section Component ---
+const AppointmentsSection = ({ user }) => {
+  const [appointments, setAppointments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [organizations, setOrganizations] = React.useState([]);
+  const [careGivers, setCareGivers] = React.useState([]);
+  
+  const [newAppointment, setNewAppointment] = React.useState({
+    organization: user.organization || '',
+    care_giver: '',
+    reason: '',
+    date: '',
+    time: ''
+  });
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/api/appointments');
+      setAppointments(res.data.appointments || []);
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAppointments();
+
+    const fetchOrgs = async () => {
+      try {
+        const res = await axios.get('/api/auth/organizations');
+        setOrganizations(res.data.organizations || []);
+      } catch (err) {
+        console.error("Failed to fetch organizations:", err);
+      }
+    };
+    fetchOrgs();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchCaregivers = async () => {
+      if (!newAppointment.organization) {
+        setCareGivers([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/appointments/caregivers?organization=${newAppointment.organization}`);
+        setCareGivers(res.data.caregivers || []);
+      } catch (err) {
+        console.error("Failed to fetch caregivers:", err);
+      }
+    };
+    fetchCaregivers();
+  }, [newAppointment.organization]);
+
+  const handleCreateAppointment = async (e) => {
+    e.preventDefault();
+    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date || !newAppointment.time) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const date_time = `${newAppointment.date}T${newAppointment.time}`;
+      const res = await axios.post('/api/appointments', {
+        organization: newAppointment.organization,
+        care_giver: newAppointment.care_giver || null,
+        reason: newAppointment.reason,
+        date_time
+      });
+      
+      alert(`Appointment scheduled successfully!\nYour 6-digit fulfillment verification key is: ${res.data.appointment.appointment_key}`);
+      fetchAppointments();
+      setNewAppointment({
+        organization: user.organization || '',
+        care_giver: '',
+        reason: '',
+        date: '',
+        time: ''
+      });
+    } catch (err) {
+      console.error("Failed to create appointment:", err);
+      alert(err.response?.data?.message || "Failed to create appointment");
+    }
+  };
+
+  const handleApprove = async (id) => {
+    try {
+      await axios.put(`/api/appointments/${id}/status`, { status: 'approved' });
+      alert("Appointment approved successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to approve appointment:", err);
+      alert(err.response?.data?.message || "Failed to approve appointment");
+    }
+  };
+
+  const handleCancel = async (id) => {
+    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+    try {
+      await axios.put(`/api/appointments/${id}/status`, { status: 'cancelled' });
+      alert("Appointment cancelled successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to cancel appointment:", err);
+      alert(err.response?.data?.message || "Failed to cancel appointment");
+    }
+  };
+
+  const handleFulfill = async (id) => {
+    const key = prompt("Please enter the 6-digit verification key supplied by the patient:");
+    if (!key) return;
+    try {
+      await axios.put(`/api/appointments/${id}/fulfill`, { appointment_key: key });
+      alert("Appointment marked as fulfilled successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to fulfill appointment:", err);
+      alert(err.response?.data?.message || "Failed to fulfill appointment");
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+      case 'fulfilled':
+        return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      case 'cancelled':
+        return 'bg-red-500/20 text-red-400 border border-red-500/30';
+      default:
+        return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+    }
+  };
+
+  return (
+    <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
+      {/* Historical Appointments list */}
+      <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
+        <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+          <FaCalendarAlt className='text-violet-400' />
+          Appointment Logs
+        </h2>
+        {loading ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            Loading appointments...
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            No appointments found.
+          </div>
+        ) : (
+          <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar'>
+            {appointments.map(app => {
+              const isAdminOfOrg = user.role === 'admin' && user.organization?.toLowerCase() === app.organization?.toLowerCase();
+              const isAssignedCaregiver = app.care_giver && app.care_giver.toString() === user.id.toString();
+              const isCreator = Number(app.visitor_id) === Number(user.id);
+              const showActions = app.status === 'pending' || app.status === 'approved';
+
+              return (
+                <div key={app.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+                  <div className='flex-1 pr-2 text-left'>
+                    <div className='flex items-center gap-2 mb-2'>
+                      <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wide ${getStatusStyle(app.status)}`}>
+                        {app.status}
+                      </span>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>{new Date(app.date_time).toLocaleString()}</span>
+                    </div>
+                    <h3 className='font-bold text-sm text-violet-300'>{app.reason}</h3>
+                    <p className='text-xs text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Org:</span> {app.organization}</p>
+                    <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Visitor:</span> {app.visitor_name || `ID: ${app.visitor_id}`}</p>
+                    <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Caregiver:</span> {app.care_giver_name || (app.care_giver ? `ID: ${app.care_giver}` : 'Not assigned')}</p>
+                    {app.appointment_key && (
+                      <div className='mt-3 bg-violet-500/10 border border-violet-500/20 px-3 py-2 rounded-xl text-xs flex justify-between items-center max-w-xs'>
+                        <span className='text-gray-400 font-semibold uppercase tracking-wider text-[10px]'>Verification Key</span>
+                        <span className='font-mono font-black text-violet-400 text-sm tracking-widest'>{app.appointment_key}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Actions column */}
+                  {showActions && (
+                    <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
+                      {app.status === 'pending' && (isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleApprove(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-violet-500 hover:bg-violet-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {app.status === 'approved' && (isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleFulfill(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Fulfill
+                        </button>
+                      )}
+                      {(isCreator || isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleCancel(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 border border-white/10 hover:border-red-500/20 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Schedule Form */}
+      <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
+        <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+          <FaPlusCircle className='text-fuchsia-400' />
+          Book Appointment
+        </h2>
+        <form onSubmit={handleCreateAppointment} className='space-y-4 text-left'>
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Organization <span className='text-red-400'>*</span></label>
+            <select 
+              value={newAppointment.organization} 
+              onChange={e => setNewAppointment({ ...newAppointment, organization: e.target.value, care_giver: '' })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+              required
+            >
+              <option value="" disabled className='bg-slate-900'>Select Organization</option>
+              {organizations.map((org, idx) => (
+                <option key={idx} value={org} className='bg-slate-900'>{org}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Assigned Caregiver</label>
+            <select 
+              value={newAppointment.care_giver} 
+              onChange={e => setNewAppointment({ ...newAppointment, care_giver: e.target.value })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+            >
+              <option value="" className='bg-slate-900'>Select Caregiver (Optional)</option>
+              {careGivers.map(cg => (
+                <option key={cg.id} value={cg.id} className='bg-slate-900'>ID: {cg.id} — {cg.fullname}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className='grid grid-cols-2 gap-2'>
+            <div>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Date <span className='text-red-400'>*</span></label>
+              <input 
+                type="date" 
+                value={newAppointment.date} 
+                onChange={e => setNewAppointment({ ...newAppointment, date: e.target.value })} 
+                className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
+                required
+              />
+            </div>
+            <div>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time <span className='text-red-400'>*</span></label>
+              <input 
+                type="time" 
+                value={newAppointment.time} 
+                onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
+                className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Reason <span className='text-red-400'>*</span></label>
+            <textarea 
+              placeholder="Provide reason for booking (e.g. general body checkup)..." 
+              value={newAppointment.reason} 
+              onChange={e => setNewAppointment({ ...newAppointment, reason: e.target.value })} 
+              className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24' 
+              required
+            ></textarea>
+          </div>
+
+          <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-2 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
+            Book Appointment
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- Reusable Reviews Section Component ---
+const ReviewsSection = ({ user }) => {
+  const [reviews, setReviews] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({ rating: 5, comment: '' });
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/api/reviews/my');
+      setReviews(res.data.reviews || []);
+    } catch (err) {
+      console.error("Failed to fetch my reviews:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const handleCreateReview = async (e) => {
+    e.preventDefault();
+    if (!newReview.comment.trim()) {
+      alert("Please write a comment.");
+      return;
+    }
+    try {
+      await axios.post('/api/reviews', {
+        rating: newReview.rating,
+        comment: newReview.comment.trim()
+      });
+      alert("Review posted successfully!");
+      fetchReviews();
+      setNewReview({ rating: 5, comment: '' });
+    } catch (err) {
+      console.error("Failed to create review:", err);
+      alert(err.response?.data?.message || "Failed to submit review");
+    }
+  };
+
+  const handleStartEdit = (review) => {
+    setEditingId(review.id);
+    setEditForm({ rating: review.rating, comment: review.comment || '' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ rating: 5, comment: '' });
+  };
+
+  const handleUpdateReview = async (e, id) => {
+    e.preventDefault();
+    if (!editForm.comment.trim()) {
+      alert("Please write a comment.");
+      return;
+    }
+    try {
+      await axios.put(`/api/reviews/${id}`, {
+        rating: editForm.rating,
+        comment: editForm.comment.trim()
+      });
+      alert("Review updated successfully!");
+      setEditingId(null);
+      fetchReviews();
+    } catch (err) {
+      console.error("Failed to update review:", err);
+      alert(err.response?.data?.message || "Failed to update review");
+    }
+  };
+
+  const handleDeleteReview = async (id) => {
+    if (!confirm("Are you sure you want to delete this review?")) return;
+    try {
+      await axios.delete(`/api/reviews/${id}`);
+      alert("Review deleted successfully!");
+      fetchReviews();
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+      alert(err.response?.data?.message || "Failed to delete review");
+    }
+  };
+
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return {
+          primaryBg: 'bg-violet-500',
+          primaryHover: 'hover:bg-violet-600',
+          text: 'text-violet-400',
+          border: 'border-violet-500/20',
+          shadow: 'shadow-violet-500/25',
+          badge: 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+        };
+      case 'staff':
+        return {
+          primaryBg: 'bg-emerald-500',
+          primaryHover: 'hover:bg-emerald-600',
+          text: 'text-emerald-400',
+          border: 'border-emerald-500/20',
+          shadow: 'shadow-emerald-500/25',
+          badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        };
+      case 'chw':
+        return {
+          primaryBg: 'bg-orange-500',
+          primaryHover: 'hover:bg-orange-600',
+          text: 'text-orange-400',
+          border: 'border-orange-500/20',
+          shadow: 'shadow-orange-500/25',
+          badge: 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+        };
+      case 'patient':
+      default:
+        return {
+          primaryBg: 'bg-purple-500',
+          primaryHover: 'hover:bg-purple-600',
+          text: 'text-purple-400',
+          border: 'border-purple-500/20',
+          shadow: 'shadow-purple-500/25',
+          badge: 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+        };
+    }
+  };
+
+  const colors = getRoleColors(user.role);
+
+  return (
+    <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
+      <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
+        <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+          <FaStar className={colors.text} />
+          My Feedback Logs
+        </h2>
+        {loading ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            Loading reviews...
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            You haven't written any reviews yet. Write one on the right!
+          </div>
+        ) : (
+          <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar text-left'>
+            {reviews.map(r => (
+              <div key={r.id} className={`bg-white/5 border border-white/5 hover:${colors.border} rounded-xl p-5 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between gap-4`}>
+                {editingId === r.id ? (
+                  <form onSubmit={(e) => handleUpdateReview(e, r.id)} className='space-y-3 w-full'>
+                    <div>
+                      <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
+                      <select 
+                        value={editForm.rating} 
+                        onChange={e => setEditForm({ ...editForm, rating: parseInt(e.target.value) })} 
+                        className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
+                      >
+                        {[5, 4, 3, 2, 1, 0].map(num => (
+                          <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Comment</label>
+                      <textarea 
+                        value={editForm.comment} 
+                        onChange={e => setEditForm({ ...editForm, comment: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24'
+                        required
+                      />
+                    </div>
+                    <div className='flex gap-2 justify-end'>
+                      <button 
+                        type="button" 
+                        onClick={handleCancelEdit}
+                        className='cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-300'
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className={`cursor-pointer ${colors.primaryBg} ${colors.primaryHover} text-black text-xs font-bold px-3 py-1.5 rounded-lg transition-all duration-300`}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className='flex justify-between items-start'>
+                      <div className='flex flex-col gap-2'>
+                        <div className='flex items-center gap-1'>
+                          {[...Array(5)].map((_, i) => (
+                            <FaStar key={i} className={i < r.rating ? 'text-yellow-500' : 'text-gray-700'} size={12} />
+                          ))}
+                        </div>
+                        <span className='text-[10px] text-gray-500 font-semibold uppercase tracking-wider'>{new Date(r.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button 
+                          onClick={() => handleStartEdit(r)}
+                          className='cursor-pointer text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all duration-300'
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteReview(r.id)}
+                          className='cursor-pointer text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-300'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p className='text-xs text-gray-300 italic'>"{r.comment}"</p>
+                    <div className='text-[10px] text-gray-500 flex items-center gap-1.5 mt-1'>
+                      <span className='font-semibold text-gray-400'>Role:</span> <span>{r.reviewer_role}</span>
+                      {r.reviewer_org && (
+                        <>
+                          <span className='text-white/20'>|</span>
+                          <span className='font-semibold text-gray-400'>Org:</span> <span>{r.reviewer_org}</span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
+        <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+          <FaPlusCircle className={colors.text} />
+          Write Feedback
+        </h2>
+        <form onSubmit={handleCreateReview} className='space-y-4 text-left'>
+          <div>
+            <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
+            <select 
+              value={newReview.rating} 
+              onChange={e => setNewReview({ ...newReview, rating: parseInt(e.target.value) })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+            >
+              {[5, 4, 3, 2, 1, 0].map(num => (
+                <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Comment <span className='text-red-400'>*</span></label>
+            <textarea 
+              placeholder="Your comments or review about the website system..." 
+              value={newReview.comment} 
+              onChange={e => setNewReview({ ...newReview, comment: e.target.value })} 
+              className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-28' 
+              required
+            ></textarea>
+          </div>
+
+          <button type="submit" className={`cursor-pointer w-full ${colors.primaryBg} ${colors.primaryHover} text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-2 hover:scale-[1.01] active:scale-95 shadow-lg ${colors.shadow}`}>
+            Submit Review
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -554,10 +1137,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
     { id: 3, fullname: "Sister Helen Ndlovu", role: "Senior Nurse", email: "h.ndlovu@ubuntuhealth.org", phone_number: "0625556666", availability: "On Duty" }
   ]);
 
-  const [reviews, setReviews] = React.useState([
-    { id: 1, rating: 5, comment: "Excellent speed in registering and assigning tasks to workers!", date: "2026-06-12" },
-    { id: 2, rating: 4, comment: "Very clean dark theme and responsive navigation layouts.", date: "2026-06-13" }
-  ]);
+  // Reviews state removed to use database reviews in ReviewsSection
 
   const [chatMessages, setChatMessages] = React.useState([
     { id: 1, sender: "System", recipient: "All", message: "Welcome to the UbuntuHealth Admin Chat Room. Select a target group or contact to start.", timestamp: "16:00" }
@@ -591,7 +1171,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
   });
   const [newTask, setNewTask] = React.useState({ title: '', desc: '', priority: 'High', deadline: '' });
   const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
-  const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
+  // newReview state removed to use database reviews in ReviewsSection
   
   const [chatTarget, setChatTarget] = React.useState('patients'); // 'patients', 'chws', 'staff', or specific name
   const [chatInput, setChatInput] = React.useState('');
@@ -754,18 +1334,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
     setNewAppointment({ patientName: '', staffName: '', date: '', time: '' });
   };
 
-  const handleCreateReview = (e) => {
-    e.preventDefault();
-    if (!newReview.comment) return;
-    const reviewToAdd = {
-      id: reviews.length + 1,
-      rating: newReview.rating,
-      comment: newReview.comment,
-      date: new Date().toISOString().split('T')[0]
-    };
-    setReviews([reviewToAdd, ...reviews]);
-    setNewReview({ rating: 5, comment: '' });
-  };
+  // handleCreateReview removed to use database reviews in ReviewsSection
 
   const handleSendChatMessage = (e) => {
     e.preventDefault();
@@ -1518,98 +2087,9 @@ const AdminDashboard = ({ user, handleLogout }) => {
             )}
           </div>
         )}
-
         {/* --- Appointments Section --- */}
         {activeTab === 'appointments' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
-              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
-                <FaCalendarAlt className='text-violet-400' />
-                Organization Appointments
-              </h2>
-              <div className='overflow-x-auto'>
-                <table className='w-full text-left text-xs border-collapse'>
-                  <thead>
-                    <tr className='border-b border-white/10 text-gray-400 font-semibold'>
-                      <th className='pb-3'>Patient</th>
-                      <th className='pb-3'>Assigned Doctor</th>
-                      <th className='pb-3'>Date</th>
-                      <th className='pb-3'>Time</th>
-                      <th className='pb-3'>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className='divide-y divide-white/5'>
-                    {appointments.map(app => (
-                      <tr key={app.id} className='hover:bg-white/5'>
-                        <td className='py-3 font-semibold'>{app.patientName}</td>
-                        <td className='py-3 text-gray-300'>{app.staffName}</td>
-                        <td className='py-3 text-gray-400'>{app.date}</td>
-                        <td className='py-3 text-gray-400'>{app.time}</td>
-                        <td className='py-3'>
-                          <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30`}>{app.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Create Appointment form */}
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Schedule Appointment
-              </h2>
-              <form onSubmit={handleCreateAppointment} className='space-y-4'>
-                <input 
-                  type="text" 
-                  placeholder="Patient Name" 
-                  value={newAppointment.patientName} 
-                  onChange={e => setNewAppointment({ ...newAppointment, patientName: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                <select 
-                  value={newAppointment.staffName} 
-                  onChange={e => setNewAppointment({ ...newAppointment, staffName: e.target.value })} 
-                  className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
-                  required
-                >
-                  <option value="" disabled className='bg-slate-900'>Select Doctor/Staff</option>
-                  {staff.map(s => (
-                    <option key={s.id} value={s.fullname} className='bg-slate-900'>{s.fullname} ({s.role})</option>
-                  ))}
-                </select>
-                <div className='grid grid-cols-2 gap-2'>
-                  <div>
-                    <label className='block text-[9px] uppercase font-bold text-gray-500 mb-1'>Date</label>
-                    <input 
-                      type="date" 
-                      value={newAppointment.date} 
-                      onChange={e => setNewAppointment({ ...newAppointment, date: e.target.value })} 
-                      className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className='block text-[9px] uppercase font-bold text-gray-500 mb-1'>Time</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 10:30 AM" 
-                      value={newAppointment.time} 
-                      onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
-                      className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      required
-                    />
-                  </div>
-                </div>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Schedule
-                </button>
-              </form>
-            </div>
-          </div>
+          <AppointmentsSection user={user} />
         )}
 
         {/* --- Staff Section --- */}
@@ -1664,61 +2144,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
         {/* --- Reviews Section --- */}
         {activeTab === 'reviews' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
-              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
-                <FaStar className='text-violet-400' />
-                My Reviews & Feedback Log
-              </h2>
-              <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
-                {reviews.map(r => (
-                  <div key={r.id} className='bg-white/5 border border-white/5 rounded-xl p-4'>
-                    <div className='flex justify-between items-center mb-2'>
-                      <div className='flex items-center gap-1'>
-                        {[...Array(5)].map((_, i) => (
-                          <FaStar key={i} className={i < r.rating ? 'text-yellow-500' : 'text-gray-700'} size={12} />
-                        ))}
-                      </div>
-                      <span className='text-[10px] text-gray-500'>{r.date}</span>
-                    </div>
-                    <p className='text-xs text-gray-300 italic'>"{r.comment}"</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Create review form */}
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Write Web Feedback
-              </h2>
-              <form onSubmit={handleCreateReview} className='space-y-4'>
-                <div>
-                  <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
-                  <select 
-                    value={newReview.rating} 
-                    onChange={e => setNewReview({ ...newReview, rating: parseInt(e.target.value) })} 
-                    className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
-                  >
-                    {[5, 4, 3, 2, 1].map(num => (
-                      <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
-                    ))}
-                  </select>
-                </div>
-                <textarea 
-                  placeholder="Your comments or review about the website system..." 
-                  value={newReview.comment} 
-                  onChange={e => setNewReview({ ...newReview, comment: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-28' 
-                  required
-                ></textarea>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Submit Feedback
-                </button>
-              </form>
-            </div>
-          </div>
+          <ReviewsSection user={user} />
         )}
 
         {/* --- Chat Room Section --- */}

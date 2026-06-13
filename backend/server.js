@@ -6,6 +6,8 @@ import dotenv from 'dotenv';        //To read environment variables from a .env 
 import authRoutes from './routes/auth.js';   //Importing the authentication routes defined in the auth.js file, which will handle user registration, login, and other authentication-related endpoints.
 import patientRoutes from './routes/patients.js';
 import chwRoutes from './routes/chw.js';
+import appointmentRoutes from './routes/appointments.js';
+import reviewRoutes from './routes/reviews.js';
 // import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -27,6 +29,8 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);   //Mounts the authentication routes defined in the authRoutes module at the '/api/auth' path. This means that any requests to endpoints like '/api/auth/register' or '/api/auth/login' will be handled by the corresponding route handlers defined in the authRoutes module.
 app.use('/api/patients', patientRoutes);
 app.use('/api/chw', chwRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 const Port = process.env.PORT || 5000;
 app.listen(Port, () => {        //Server listens on port 5000
