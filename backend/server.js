@@ -8,6 +8,7 @@ import patientRoutes from './routes/patients.js';
 import chwRoutes from './routes/chw.js';
 import appointmentRoutes from './routes/appointments.js';
 import reviewRoutes from './routes/reviews.js';
+import referralRoutes from './routes/referrals.js';
 // import bcrypt from 'bcryptjs';
 
 dotenv.config();
@@ -31,6 +32,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/chw', chwRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/referrals', referralRoutes);
 
 const Port = process.env.PORT || 5000;
 app.listen(Port, () => {        //Server listens on port 5000
