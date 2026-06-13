@@ -29,10 +29,27 @@ const Home = ({ setUser }) => {
     phone_number: '',
     email: '',
     password: '',
-    role: 'patient'
+    role: 'admin',
+    organization: ''
   });
+  const [organizations, setOrganizations] = useState([]);
   const [registerError, setRegisterError] = useState(null);
   const [registerLoading, setRegisterLoading] = useState(false);
+
+  const fetchOrganizations = async () => {
+    try {
+      const res = await axios.get('/api/auth/organizations');
+      setOrganizations(res.data.organizations || []);
+    } catch (err) {
+      console.error('Failed to fetch organizations:', err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (registerForm.role === 'staff') {
+      fetchOrganizations();
+    }
+  }, [registerForm.role]);
 
   // Contact Form States
   const [contactEmail, setContactEmail] = useState('');
@@ -74,7 +91,7 @@ const Home = ({ setUser }) => {
   // Registration submit handler
   const handleRegister = async (e) => {
     e.preventDefault();
-    const { fullname, identity, password, phone_number, role } = registerForm;
+    const { fullname, identity, password, phone_number, role, organization } = registerForm;
     if (!fullname || !identity || !password || !phone_number || !role) {
       setRegisterError('Please provide all required fields');
       return;
@@ -89,6 +106,12 @@ const Home = ({ setUser }) => {
     // Validate phone number (exactly 10 digits) to match database constraints
     if (!/^[0-9]{10}$/.test(phone_number)) {
       setRegisterError('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    // Validate organization
+    if (!organization || !organization.trim()) {
+      setRegisterError('Organization name is required');
       return;
     }
 
@@ -151,7 +174,7 @@ const Home = ({ setUser }) => {
       setTimeout(() => setContactStatus(null), 6000);
     }
   };
-
+  // TODO: Replace this with organizations from the database
   const hospitals = [
     'Tembisa Hospital',
     'George Mokhali Hospital',
@@ -352,34 +375,23 @@ const Home = ({ setUser }) => {
                       <input 
                         type="radio" 
                         name="role" 
-                        value="patient"
-                        checked={registerForm.role === 'patient'}
-                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value })}
+                        value="admin"
+                        checked={registerForm.role === 'admin'}
+                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '' })}
                         className='accent-green-500 cursor-pointer h-3.5 w-3.5'
                       />
-                      <span>Patient</span>
+                      <span>Admin</span>
                     </label>
                     <label className='flex items-center gap-1.5 cursor-pointer hover:text-green-400 transition-colors'>
                       <input 
                         type="radio" 
                         name="role" 
-                        value="clinician"
-                        checked={registerForm.role === 'clinician'}
-                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value })}
+                        value="staff"
+                        checked={registerForm.role === 'staff'}
+                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '' })}
                         className='accent-green-500 cursor-pointer h-3.5 w-3.5'
                       />
-                      <span>Clinician</span>
-                    </label>
-                    <label className='flex items-center gap-1.5 cursor-pointer hover:text-green-400 transition-colors'>
-                      <input 
-                        type="radio" 
-                        name="role" 
-                        value="chw"
-                        checked={registerForm.role === 'chw'}
-                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value })}
-                        className='accent-green-500 cursor-pointer h-3.5 w-3.5'
-                      />
-                      <span>CHW</span>
+                      <span>Staff</span>
                     </label>
                   </div>
 
@@ -439,6 +451,36 @@ const Home = ({ setUser }) => {
                           onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
                           className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
                         />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className='relative'>
+                        <FaHospital className='absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500' />
+                        {registerForm.role === 'admin' ? (
+                          <input 
+                            type="text"
+                            placeholder="Organization Name"
+                            value={registerForm.organization}
+                            onChange={(e) => setRegisterForm({ ...registerForm, organization: e.target.value })}
+                            className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                          />
+                        ) : (
+                          <select 
+                            value={registerForm.organization}
+                            onChange={(e) => setRegisterForm({ ...registerForm, organization: e.target.value })}
+                            className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm appearance-none cursor-pointer'
+                          >
+                            <option value="" disabled className="bg-[#090C0E]">Select Organization</option>
+                            {organizations.length === 0 ? (
+                              <option value="" disabled className="bg-[#090C0E]">No organizations available (admin must register first)</option>
+                            ) : (
+                              organizations.map((org, index) => (
+                                <option key={index} value={org} className="bg-[#090C0E]">{org}</option>
+                              ))
+                            )}
+                          </select>
+                        )}
                       </div>
                     </div>
 
