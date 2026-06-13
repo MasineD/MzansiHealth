@@ -2,6 +2,7 @@
 import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
 import { 
   FaUserMd, 
   FaUser, 
@@ -1394,6 +1395,94 @@ const ReferralsSection = ({ user }) => {
     }
   };
 
+  const handleDownloadTicket = (ref) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const orgFrom = ref.organization_from || 'Mzansi Health';
+
+      // 1. Watermark with the organization_from name (diagonal text from bottom left to top right)
+      doc.setTextColor(243, 244, 246); // Very light grey (slate-50 equivalent)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(54);
+      // Center watermarks diagonally (315 degrees is counter-clockwise rotation, drawing from bottom-left to top-right)
+      doc.text(orgFrom.toUpperCase(), 105, 150, { align: 'center', angle: 315 });
+
+      // 2. Document Header / Title
+      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text("MZANSI HEALTH", 105, 25, { align: 'center' });
+      
+      doc.setFontSize(13);
+      doc.setTextColor(100, 116, 139); // Slate 500
+      doc.text("Official Medical Referral Ticket", 105, 33, { align: 'center' });
+
+      // Horizontal line separator
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.setLineWidth(0.5);
+      doc.line(20, 38, 190, 38);
+
+      // 3. Referral Details Setup
+      const startX = 25;
+      let currentY = 52;
+      const spacingY = 9;
+
+      const drawDetailRow = (label, value) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(10);
+        doc.text(label, startX, currentY);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(10.5);
+        doc.text(value || 'N/A', startX + 50, currentY);
+        
+        currentY += spacingY;
+      };
+
+      drawDetailRow("Referral ID:", `#${ref.id}`);
+      drawDetailRow("Reason / Diagnosis:", ref.reason);
+      drawDetailRow("Patient Name:", ref.patient_name || `ID: ${ref.patient_id}`);
+      drawDetailRow("Patient Identity:", ref.patient_identity || 'N/A');
+      drawDetailRow("From Organization:", ref.organization_from || 'N/A');
+      drawDetailRow("To Organization:", ref.organization_to);
+      drawDetailRow("To Department:", ref.department_to);
+      drawDetailRow("To Staff Member:", ref.staff_to || 'General / Any');
+      drawDetailRow("Expected Arrival:", ref.arrival_date ? new Date(ref.arrival_date).toLocaleDateString() : 'N/A');
+      drawDetailRow("Referral Status:", ref.status ? ref.status.toUpperCase() : 'PENDING');
+      
+      if (ref.referral_key) {
+        drawDetailRow("Verification Key:", ref.referral_key);
+      }
+
+      // Add a border box around the details
+      doc.setDrawColor(203, 213, 225); // Slate 300
+      doc.setLineWidth(0.3);
+      doc.rect(20, 44, 170, currentY - 44 + 1);
+
+      // 4. Footer Note
+      currentY += 15;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text("Thank you for choosing Mzansi Health. Please present this ticket at your destination facility.", 105, currentY, { align: 'center' });
+      currentY += 5;
+      doc.text("Generated on: " + new Date().toLocaleString(), 105, currentY, { align: 'center' });
+
+      // 5. Download the PDF file directly
+      doc.save(`referral_ticket_${ref.id}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF ticket:", err);
+      alert("Failed to generate PDF ticket. Please try again.");
+    }
+  };
+
   const getStatusStyle = (status) => {
     switch (status?.toLowerCase()) {
       case 'fulfilled':
@@ -1457,34 +1546,42 @@ const ReferralsSection = ({ user }) => {
                   </div>
 
                   {/* Actions column */}
-                  {canManage && (
-                    <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
-                      {ref.status !== 'fulfilled' && (
-                        <button 
-                          onClick={() => handleFulfillReferral(ref.id)}
-                          className='cursor-pointer flex-1 md:flex-initial bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
-                        >
-                          Fulfill
-                        </button>
-                      )}
-                      {Number(ref.referrer_id) === Number(user.id) && (
-                        <>
+                  <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
+                    <button 
+                      onClick={() => handleDownloadTicket(ref)}
+                      className='cursor-pointer flex-1 md:flex-initial bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                    >
+                      Download Ticket
+                    </button>
+                    {canManage && (
+                      <>
+                        {ref.status !== 'fulfilled' && (
                           <button 
-                            onClick={() => handleStartEdit(ref)}
-                            className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
+                            onClick={() => handleFulfillReferral(ref.id)}
+                            className='cursor-pointer flex-1 md:flex-initial bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
                           >
-                            Edit
+                            Fulfill
                           </button>
-                          <button 
-                            onClick={() => handleDeleteReferral(ref.id)}
-                            className='cursor-pointer flex-1 md:flex-initial bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
+                        )}
+                        {Number(ref.referrer_id) === Number(user.id) && (
+                          <>
+                            <button 
+                              onClick={() => handleStartEdit(ref)}
+                              className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteReferral(ref.id)}
+                              className='cursor-pointer flex-1 md:flex-initial bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1850,7 +1947,13 @@ const ReferralsSection = ({ user }) => {
             </div>
 
             {/* Footer buttons */}
-            <div className='bg-black/30 border-t border-white/5 p-4 flex justify-between gap-3'>
+            <div className='bg-black/30 border-t border-white/5 p-4 flex flex-col sm:flex-row gap-3'>
+              <button 
+                onClick={() => handleDownloadTicket(selectedReferral)}
+                className='cursor-pointer flex-1 bg-violet-600 hover:bg-violet-700 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.01]'
+              >
+                Download Ticket
+              </button>
               {canManage && selectedReferral.status !== 'fulfilled' && (
                 <button 
                   onClick={() => handleFulfillReferral(selectedReferral.id)}
