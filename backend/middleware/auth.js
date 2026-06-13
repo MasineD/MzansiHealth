@@ -10,12 +10,44 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);   //Verifies the JWT token using the secret key stored in environment variables.
-        const user = await pool.query('SELECT id, fullname, identity, email, phone_number FROM users.user_profiles WHERE id = $1',
-            [decoded.id]);   //Queries the database to find the user associated with the verified token.
-        if(user.rows.length === 0) {   //If no user is found, it returns a 401 Unauthorized response with an error message.
+        
+        let user;
+        if (decoded.role === 'patient') {
+            const result = await pool.query(
+                `SELECT p.id, p.fullname, p.identity, p.email, p.phone_number, 'patient' AS role, u.organization 
+                 FROM users.patients p
+                 LEFT JOIN users.user_profiles u ON p.registra_id = u.id
+                 WHERE p.id = $1`,
+                [decoded.id]
+            );
+            if (result.rows.length > 0) {
+                user = result.rows[0];
+            }
+        } else if (decoded.role === 'chw') {
+            const result = await pool.query(
+                `SELECT c.id, c.fullname, c.identity, c.email, c.phone_number, 'chw' AS role, u.organization 
+                 FROM users.community_health_workers c
+                 LEFT JOIN users.user_profiles u ON c.registra_id = u.id
+                 WHERE c.id = $1`,
+                [decoded.id]
+            );
+            if (result.rows.length > 0) {
+                user = result.rows[0];
+            }
+        } else {
+            const result = await pool.query(
+                'SELECT id, fullname, identity, email, phone_number, role, organization FROM users.user_profiles WHERE id = $1',
+                [decoded.id]
+            );
+            if (result.rows.length > 0) {
+                user = result.rows[0];
+            }
+        }
+
+        if(!user) {   //If no user is found, it returns a 401 Unauthorized response with an error message.
             return res.status(401).json({ message: 'Not authorized, user not found' });
         }
-        req.user = user.rows[0];   //Attaches the user information to the request object (req.user) for use in subsequent middleware or route handlers.
+        req.user = user;   //Attaches the user information to the request object (req.user) for use in subsequent middleware or route handlers.
         next();   //Calls the next middleware function in the stack.
     } catch (error) {
         console.error('Error in auth middleware:', error);   //Logs any errors that occur during the token verification process to the console for debugging purposes.

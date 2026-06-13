@@ -2,6 +2,7 @@
 import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
 import { 
   FaUserMd, 
   FaUser, 
@@ -36,7 +37,9 @@ const StaffDashboard = ({ user, handleLogout }) => {
     { id: 'patients', label: 'Patients', icon: <FaUsers /> },
     { id: 'prescriptions', label: 'E-Prescriptions', icon: <FaPrescriptionBottle /> },
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'telehealth', label: 'Telehealth', icon: <FaHeartbeat /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -181,6 +184,12 @@ const StaffDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'referrals' ? (
+          <ReferralsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -202,8 +211,10 @@ const PatientDashboard = ({ user, handleLogout }) => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottle /> },
     { id: 'registry', label: 'Medical Registry', icon: <FaFileMedicalAlt /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -268,6 +279,7 @@ const PatientDashboard = ({ user, handleLogout }) => {
             <header className='mb-12 pb-6 border-b border-purple-500/20'>
               <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
               <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
+              <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -337,6 +349,12 @@ const PatientDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'referrals' ? (
+          <ReferralsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -359,7 +377,9 @@ const ChwDashboard = ({ user, handleLogout }) => {
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
     { id: 'households', label: 'Households', icon: <FaUsers /> },
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
-    { id: 'outreach', label: 'Outreach Events', icon: <FaCalendarAlt /> },
+    { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'outreach', label: 'Outreach Events', icon: <FaClock /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
   ];
 
   return (
@@ -502,6 +522,12 @@ const ChwDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'referrals' ? (
+          <ReferralsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -516,6 +542,1440 @@ const ChwDashboard = ({ user, handleLogout }) => {
   );
 };
 
+// --- Reusable Appointments Section Component ---
+const AppointmentsSection = ({ user }) => {
+  const [appointments, setAppointments] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [organizations, setOrganizations] = React.useState([]);
+  const [careGivers, setCareGivers] = React.useState([]);
+  
+  const [newAppointment, setNewAppointment] = React.useState({
+    organization: user.organization || '',
+    care_giver: '',
+    reason: '',
+    date: '',
+    time: ''
+  });
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/api/appointments');
+      setAppointments(res.data.appointments || []);
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAppointments();
+
+    const fetchOrgs = async () => {
+      try {
+        const res = await axios.get('/api/auth/organizations');
+        setOrganizations(res.data.organizations || []);
+      } catch (err) {
+        console.error("Failed to fetch organizations:", err);
+      }
+    };
+    fetchOrgs();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchCaregivers = async () => {
+      if (!newAppointment.organization) {
+        setCareGivers([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/appointments/caregivers?organization=${newAppointment.organization}`);
+        setCareGivers(res.data.caregivers || []);
+      } catch (err) {
+        console.error("Failed to fetch caregivers:", err);
+      }
+    };
+    fetchCaregivers();
+  }, [newAppointment.organization]);
+
+  const handleCreateAppointment = async (e) => {
+    e.preventDefault();
+    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date || !newAppointment.time) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const date_time = `${newAppointment.date}T${newAppointment.time}`;
+      const res = await axios.post('/api/appointments', {
+        organization: newAppointment.organization,
+        care_giver: newAppointment.care_giver || null,
+        reason: newAppointment.reason,
+        date_time
+      });
+      
+      alert(`Appointment scheduled successfully!\nYour 6-digit fulfillment verification key is: ${res.data.appointment.appointment_key}`);
+      fetchAppointments();
+      setNewAppointment({
+        organization: user.organization || '',
+        care_giver: '',
+        reason: '',
+        date: '',
+        time: ''
+      });
+    } catch (err) {
+      console.error("Failed to create appointment:", err);
+      alert(err.response?.data?.message || "Failed to create appointment");
+    }
+  };
+
+  const handleApprove = async (id) => {
+    try {
+      await axios.put(`/api/appointments/${id}/status`, { status: 'approved' });
+      alert("Appointment approved successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to approve appointment:", err);
+      alert(err.response?.data?.message || "Failed to approve appointment");
+    }
+  };
+
+  const handleCancel = async (id) => {
+    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+    try {
+      await axios.put(`/api/appointments/${id}/status`, { status: 'cancelled' });
+      alert("Appointment cancelled successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to cancel appointment:", err);
+      alert(err.response?.data?.message || "Failed to cancel appointment");
+    }
+  };
+
+  const handleFulfill = async (id) => {
+    const key = prompt("Please enter the 6-digit verification key supplied by the patient:");
+    if (!key) return;
+    try {
+      await axios.put(`/api/appointments/${id}/fulfill`, { appointment_key: key });
+      alert("Appointment marked as fulfilled successfully!");
+      fetchAppointments();
+    } catch (err) {
+      console.error("Failed to fulfill appointment:", err);
+      alert(err.response?.data?.message || "Failed to fulfill appointment");
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
+      case 'fulfilled':
+        return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      case 'cancelled':
+        return 'bg-red-500/20 text-red-400 border border-red-500/30';
+      default:
+        return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+    }
+  };
+
+  return (
+    <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
+      {/* Historical Appointments list */}
+      <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
+        <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+          <FaCalendarAlt className='text-violet-400' />
+          Appointment Logs
+        </h2>
+        {loading ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            Loading appointments...
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            No appointments found.
+          </div>
+        ) : (
+          <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar'>
+            {appointments.map(app => {
+              const isAdminOfOrg = user.role === 'admin' && user.organization?.toLowerCase() === app.organization?.toLowerCase();
+              const isAssignedCaregiver = app.care_giver && app.care_giver.toString() === user.id.toString();
+              const isCreator = Number(app.visitor_id) === Number(user.id);
+              const showActions = app.status === 'pending' || app.status === 'approved';
+
+              return (
+                <div key={app.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+                  <div className='flex-1 pr-2 text-left'>
+                    <div className='flex items-center gap-2 mb-2'>
+                      <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wide ${getStatusStyle(app.status)}`}>
+                        {app.status}
+                      </span>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>{new Date(app.date_time).toLocaleString()}</span>
+                    </div>
+                    <h3 className='font-bold text-sm text-violet-300'>{app.reason}</h3>
+                    <p className='text-xs text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Org:</span> {app.organization}</p>
+                    <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Visitor:</span> {app.visitor_name || `ID: ${app.visitor_id}`}</p>
+                    <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Caregiver:</span> {app.care_giver_name || (app.care_giver ? `ID: ${app.care_giver}` : 'Not assigned')}</p>
+                    {app.appointment_key && (
+                      <div className='mt-3 bg-violet-500/10 border border-violet-500/20 px-3 py-2 rounded-xl text-xs flex justify-between items-center max-w-xs'>
+                        <span className='text-gray-400 font-semibold uppercase tracking-wider text-[10px]'>Verification Key</span>
+                        <span className='font-mono font-black text-violet-400 text-sm tracking-widest'>{app.appointment_key}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Actions column */}
+                  {showActions && (
+                    <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
+                      {app.status === 'pending' && (isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleApprove(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-violet-500 hover:bg-violet-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {app.status === 'approved' && (isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleFulfill(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Fulfill
+                        </button>
+                      )}
+                      {(isCreator || isAdminOfOrg || isAssignedCaregiver) && (
+                        <button 
+                          onClick={() => handleCancel(app.id)}
+                          className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 border border-white/10 hover:border-red-500/20 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-300'
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Schedule Form */}
+      <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
+        <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+          <FaPlusCircle className='text-fuchsia-400' />
+          Book Appointment
+        </h2>
+        <form onSubmit={handleCreateAppointment} className='space-y-4 text-left'>
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Organization <span className='text-red-400'>*</span></label>
+            <select 
+              value={newAppointment.organization} 
+              onChange={e => setNewAppointment({ ...newAppointment, organization: e.target.value, care_giver: '' })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+              required
+            >
+              <option value="" disabled className='bg-slate-900'>Select Organization</option>
+              {organizations.map((org, idx) => (
+                <option key={idx} value={org} className='bg-slate-900'>{org}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Assigned Caregiver</label>
+            <select 
+              value={newAppointment.care_giver} 
+              onChange={e => setNewAppointment({ ...newAppointment, care_giver: e.target.value })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+            >
+              <option value="" className='bg-slate-900'>Select Caregiver (Optional)</option>
+              {careGivers.map(cg => (
+                <option key={cg.id} value={cg.id} className='bg-slate-900'>ID: {cg.id} — {cg.fullname}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className='grid grid-cols-2 gap-2'>
+            <div>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Date <span className='text-red-400'>*</span></label>
+              <input 
+                type="date" 
+                value={newAppointment.date} 
+                onChange={e => setNewAppointment({ ...newAppointment, date: e.target.value })} 
+                className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
+                required
+              />
+            </div>
+            <div>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time <span className='text-red-400'>*</span></label>
+              <input 
+                type="time" 
+                value={newAppointment.time} 
+                onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
+                className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Reason <span className='text-red-400'>*</span></label>
+            <textarea 
+              placeholder="Provide reason for booking (e.g. general body checkup)..." 
+              value={newAppointment.reason} 
+              onChange={e => setNewAppointment({ ...newAppointment, reason: e.target.value })} 
+              className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24' 
+              required
+            ></textarea>
+          </div>
+
+          <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-2 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
+            Book Appointment
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- Reusable Reviews Section Component ---
+const ReviewsSection = ({ user }) => {
+  const [reviews, setReviews] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({ rating: 5, comment: '' });
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/api/reviews/my');
+      setReviews(res.data.reviews || []);
+    } catch (err) {
+      console.error("Failed to fetch my reviews:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const handleCreateReview = async (e) => {
+    e.preventDefault();
+    if (!newReview.comment.trim()) {
+      alert("Please write a comment.");
+      return;
+    }
+    try {
+      await axios.post('/api/reviews', {
+        rating: newReview.rating,
+        comment: newReview.comment.trim()
+      });
+      alert("Review posted successfully!");
+      fetchReviews();
+      setNewReview({ rating: 5, comment: '' });
+    } catch (err) {
+      console.error("Failed to create review:", err);
+      alert(err.response?.data?.message || "Failed to submit review");
+    }
+  };
+
+  const handleStartEdit = (review) => {
+    setEditingId(review.id);
+    setEditForm({ rating: review.rating, comment: review.comment || '' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ rating: 5, comment: '' });
+  };
+
+  const handleUpdateReview = async (e, id) => {
+    e.preventDefault();
+    if (!editForm.comment.trim()) {
+      alert("Please write a comment.");
+      return;
+    }
+    try {
+      await axios.put(`/api/reviews/${id}`, {
+        rating: editForm.rating,
+        comment: editForm.comment.trim()
+      });
+      alert("Review updated successfully!");
+      setEditingId(null);
+      fetchReviews();
+    } catch (err) {
+      console.error("Failed to update review:", err);
+      alert(err.response?.data?.message || "Failed to update review");
+    }
+  };
+
+  const handleDeleteReview = async (id) => {
+    if (!confirm("Are you sure you want to delete this review?")) return;
+    try {
+      await axios.delete(`/api/reviews/${id}`);
+      alert("Review deleted successfully!");
+      fetchReviews();
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+      alert(err.response?.data?.message || "Failed to delete review");
+    }
+  };
+
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return {
+          primaryBg: 'bg-violet-500',
+          primaryHover: 'hover:bg-violet-600',
+          text: 'text-violet-400',
+          border: 'border-violet-500/20',
+          shadow: 'shadow-violet-500/25',
+          badge: 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+        };
+      case 'staff':
+        return {
+          primaryBg: 'bg-emerald-500',
+          primaryHover: 'hover:bg-emerald-600',
+          text: 'text-emerald-400',
+          border: 'border-emerald-500/20',
+          shadow: 'shadow-emerald-500/25',
+          badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        };
+      case 'chw':
+        return {
+          primaryBg: 'bg-orange-500',
+          primaryHover: 'hover:bg-orange-600',
+          text: 'text-orange-400',
+          border: 'border-orange-500/20',
+          shadow: 'shadow-orange-500/25',
+          badge: 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+        };
+      case 'patient':
+      default:
+        return {
+          primaryBg: 'bg-purple-500',
+          primaryHover: 'hover:bg-purple-600',
+          text: 'text-purple-400',
+          border: 'border-purple-500/20',
+          shadow: 'shadow-purple-500/25',
+          badge: 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+        };
+    }
+  };
+
+  const colors = getRoleColors(user.role);
+
+  return (
+    <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
+      <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
+        <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+          <FaStar className={colors.text} />
+          My Feedback Logs
+        </h2>
+        {loading ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            Loading reviews...
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className='text-center py-12 text-gray-500 text-sm'>
+            You haven't written any reviews yet. Write one on the right!
+          </div>
+        ) : (
+          <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar text-left'>
+            {reviews.map(r => (
+              <div key={r.id} className={`bg-white/5 border border-white/5 hover:${colors.border} rounded-xl p-5 hover:bg-white/10 transition-all duration-300 flex flex-col justify-between gap-4`}>
+                {editingId === r.id ? (
+                  <form onSubmit={(e) => handleUpdateReview(e, r.id)} className='space-y-3 w-full'>
+                    <div>
+                      <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
+                      <select 
+                        value={editForm.rating} 
+                        onChange={e => setEditForm({ ...editForm, rating: parseInt(e.target.value) })} 
+                        className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
+                      >
+                        {[5, 4, 3, 2, 1, 0].map(num => (
+                          <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Comment</label>
+                      <textarea 
+                        value={editForm.comment} 
+                        onChange={e => setEditForm({ ...editForm, comment: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24'
+                        required
+                      />
+                    </div>
+                    <div className='flex gap-2 justify-end'>
+                      <button 
+                        type="button" 
+                        onClick={handleCancelEdit}
+                        className='cursor-pointer bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-300'
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className={`cursor-pointer ${colors.primaryBg} ${colors.primaryHover} text-black text-xs font-bold px-3 py-1.5 rounded-lg transition-all duration-300`}
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className='flex justify-between items-start'>
+                      <div className='flex flex-col gap-2'>
+                        <div className='flex items-center gap-1'>
+                          {[...Array(5)].map((_, i) => (
+                            <FaStar key={i} className={i < r.rating ? 'text-yellow-500' : 'text-gray-700'} size={12} />
+                          ))}
+                        </div>
+                        <span className='text-[10px] text-gray-500 font-semibold uppercase tracking-wider'>{new Date(r.created_at).toLocaleString()}</span>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button 
+                          onClick={() => handleStartEdit(r)}
+                          className='cursor-pointer text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all duration-300'
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteReview(r.id)}
+                          className='cursor-pointer text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all duration-300'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p className='text-xs text-gray-300 italic'>"{r.comment}"</p>
+                    <div className='text-[10px] text-gray-500 flex items-center gap-1.5 mt-1'>
+                      <span className='font-semibold text-gray-400'>Role:</span> <span>{r.reviewer_role}</span>
+                      {r.reviewer_org && (
+                        <>
+                          <span className='text-white/20'>|</span>
+                          <span className='font-semibold text-gray-400'>Org:</span> <span>{r.reviewer_org}</span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
+        <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+          <FaPlusCircle className={colors.text} />
+          Write Feedback
+        </h2>
+        <form onSubmit={handleCreateReview} className='space-y-4 text-left'>
+          <div>
+            <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
+            <select 
+              value={newReview.rating} 
+              onChange={e => setNewReview({ ...newReview, rating: parseInt(e.target.value) })} 
+              className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+            >
+              {[5, 4, 3, 2, 1, 0].map(num => (
+                <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Comment <span className='text-red-400'>*</span></label>
+            <textarea 
+              placeholder="Your comments or review about the website system..." 
+              value={newReview.comment} 
+              onChange={e => setNewReview({ ...newReview, comment: e.target.value })} 
+              className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-28' 
+              required
+            ></textarea>
+          </div>
+
+          <button type="submit" className={`cursor-pointer w-full ${colors.primaryBg} ${colors.primaryHover} text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-2 hover:scale-[1.01] active:scale-95 shadow-lg ${colors.shadow}`}>
+            Submit Review
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- Reusable Referrals Section Component ---
+const ReferralsSection = ({ user }) => {
+  const [referrals, setReferrals] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [patients, setPatients] = React.useState([]);
+  const [chws, setChws] = React.useState([]);
+  const [organizations, setOrganizations] = React.useState([]);
+  const [selectedReferral, setSelectedReferral] = React.useState(null);
+  
+  // Dynamic staff members for selected destination organization
+  const [staffList, setStaffList] = React.useState([]);
+  const [editStaffList, setEditStaffList] = React.useState([]);
+
+  // Predefined departments list
+  const DEPARTMENTS = [
+    'Cardiology', 'Dermatology', 'Endocrinology', 'Gastroenterology',
+    'General Medicine', 'Neurology', 'Obstetrics & Gynecology',
+    'Oncology', 'Ophthalmology', 'Orthopedics', 'Pediatrics',
+    'Psychiatry', 'Radiology', 'Surgery', 'Urology', 'Other'
+  ];
+
+  // Creation form state
+  const [newReferral, setNewReferral] = React.useState({
+    patient_id: '',
+    organization_to: '',
+    department_to: '',
+    custom_department: '',
+    staff_to: '',
+    reason: '',
+    arrival_date: ''
+  });
+
+  // Editing state
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({
+    patient_id: '',
+    organization_to: '',
+    department_to: '',
+    custom_department: '',
+    staff_to: '',
+    reason: '',
+    arrival_date: ''
+  });
+
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return {
+          primaryBg: 'bg-violet-500',
+          primaryHover: 'hover:bg-violet-600',
+          text: 'text-violet-400',
+          border: 'border-violet-500/20',
+          shadow: 'shadow-violet-500/25',
+          badge: 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+        };
+      case 'staff':
+        return {
+          primaryBg: 'bg-emerald-500',
+          primaryHover: 'hover:bg-emerald-600',
+          text: 'text-emerald-400',
+          border: 'border-emerald-500/20',
+          shadow: 'shadow-emerald-500/25',
+          badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        };
+      case 'chw':
+        return {
+          primaryBg: 'bg-orange-500',
+          primaryHover: 'hover:bg-orange-600',
+          text: 'text-orange-400',
+          border: 'border-orange-500/20',
+          shadow: 'shadow-orange-500/25',
+          badge: 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+        };
+      case 'patient':
+      default:
+        return {
+          primaryBg: 'bg-purple-500',
+          primaryHover: 'hover:bg-purple-600',
+          text: 'text-purple-400',
+          border: 'border-purple-500/20',
+          shadow: 'shadow-purple-500/25',
+          badge: 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+        };
+    }
+  };
+
+  const colors = getRoleColors(user.role);
+  const canManage = ['admin', 'staff'].includes(user.role?.toLowerCase());
+
+  const fetchReferrals = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/api/referrals');
+      setReferrals(res.data.referrals || []);
+    } catch (err) {
+      console.error("Failed to fetch referrals:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchReferrals();
+
+    if (canManage) {
+      const fetchPatients = async () => {
+        try {
+          const res = await axios.get('/api/patients');
+          setPatients(res.data.patients || []);
+        } catch (err) {
+          console.error("Failed to fetch patients:", err);
+        }
+      };
+      const fetchOrgs = async () => {
+        try {
+          const res = await axios.get('/api/auth/organizations');
+          setOrganizations(res.data.organizations || []);
+        } catch (err) {
+          console.error("Failed to fetch organizations:", err);
+        }
+      };
+      fetchPatients();
+      fetchOrgs();
+
+      if (user.role?.toLowerCase() === 'admin') {
+        const fetchChws = async () => {
+          try {
+            const res = await axios.get('/api/chw');
+            setChws(res.data.chws || []);
+          } catch (err) {
+            console.error("Failed to fetch CHWs:", err);
+          }
+        };
+        fetchChws();
+      }
+    }
+  }, [user.role]);
+
+  // Dynamically load staff for newReferral organization destination
+  React.useEffect(() => {
+    const fetchStaffForNew = async () => {
+      if (!newReferral.organization_to) {
+        setStaffList([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/appointments/caregivers?organization=${newReferral.organization_to}`);
+        setStaffList(res.data.caregivers || []);
+      } catch (err) {
+        console.error("Failed to fetch staff members for organization:", err);
+      }
+    };
+    fetchStaffForNew();
+  }, [newReferral.organization_to]);
+
+  // Dynamically load staff for editForm organization destination
+  React.useEffect(() => {
+    const fetchStaffForEdit = async () => {
+      if (!editForm.organization_to) {
+        setEditStaffList([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/appointments/caregivers?organization=${editForm.organization_to}`);
+        setEditStaffList(res.data.caregivers || []);
+      } catch (err) {
+        console.error("Failed to fetch staff members for organization edit:", err);
+      }
+    };
+    fetchStaffForEdit();
+  }, [editForm.organization_to]);
+
+  const handleCreateReferral = async (e) => {
+    e.preventDefault();
+    const finalDepartment = newReferral.department_to === 'Other' ? newReferral.custom_department : newReferral.department_to;
+    
+    if (!newReferral.patient_id || !newReferral.organization_to || !finalDepartment || !newReferral.reason || !newReferral.arrival_date) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      await axios.post('/api/referrals', {
+        patient_id: newReferral.patient_id,
+        organization_to: newReferral.organization_to,
+        department_to: finalDepartment,
+        staff_to: newReferral.staff_to || null,
+        reason: newReferral.reason,
+        arrival_date: newReferral.arrival_date
+      });
+      alert("Referral logged successfully!");
+      fetchReferrals();
+      setNewReferral({
+        patient_id: '',
+        organization_to: '',
+        department_to: '',
+        custom_department: '',
+        staff_to: '',
+        reason: '',
+        arrival_date: ''
+      });
+    } catch (err) {
+      console.error("Failed to create referral:", err);
+      alert(err.response?.data?.message || "Failed to create referral");
+    }
+  };
+
+  const handleStartEdit = (ref) => {
+    const isPredefined = DEPARTMENTS.includes(ref.department_to);
+    setEditingId(ref.id);
+    setEditForm({
+      patient_id: ref.patient_id,
+      organization_to: ref.organization_to,
+      department_to: isPredefined ? ref.department_to : 'Other',
+      custom_department: isPredefined ? '' : ref.department_to,
+      staff_to: ref.staff_to || '',
+      reason: ref.reason,
+      arrival_date: ref.arrival_date ? ref.arrival_date.substring(0, 10) : ''
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleUpdateReferral = async (e, id) => {
+    e.preventDefault();
+    const finalDepartment = editForm.department_to === 'Other' ? editForm.custom_department : editForm.department_to;
+    
+    if (!editForm.patient_id || !editForm.organization_to || !finalDepartment || !editForm.reason || !editForm.arrival_date) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
+    try {
+      await axios.put(`/api/referrals/${id}`, {
+        patient_id: editForm.patient_id,
+        organization_to: editForm.organization_to,
+        department_to: finalDepartment,
+        staff_to: editForm.staff_to || null,
+        reason: editForm.reason,
+        arrival_date: editForm.arrival_date
+      });
+      alert("Referral updated successfully!");
+      setEditingId(null);
+      fetchReferrals();
+    } catch (err) {
+      console.error("Failed to update referral:", err);
+      alert(err.response?.data?.message || "Failed to update referral");
+    }
+  };
+
+  const handleDeleteReferral = async (id) => {
+    if (!confirm("Are you sure you want to delete this referral?")) return;
+    try {
+      await axios.delete(`/api/referrals/${id}`);
+      alert("Referral deleted successfully!");
+      fetchReferrals();
+      if (selectedReferral?.id === id) {
+        setSelectedReferral(null);
+      }
+    } catch (err) {
+      console.error("Failed to delete referral:", err);
+      alert(err.response?.data?.message || "Failed to delete referral");
+    }
+  };
+
+  const handleFulfillReferral = async (id) => {
+    const key = prompt("Please enter the 6-character patient secure key:");
+    if (!key) return;
+    try {
+      await axios.put(`/api/referrals/${id}/fulfill`, { referral_key: key });
+      alert("Referral marked as fulfilled successfully!");
+      fetchReferrals();
+      if (selectedReferral?.id === id) {
+        // Refresh selected referral view
+        const updatedRes = await axios.get('/api/referrals');
+        const updated = updatedRes.data.referrals.find(r => r.id === id);
+        if (updated) setSelectedReferral(updated);
+      }
+    } catch (err) {
+      console.error("Failed to fulfill referral:", err);
+      alert(err.response?.data?.message || "Failed to fulfill referral");
+    }
+  };
+
+  const handleDownloadTicket = (ref) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const orgFrom = ref.organization_from || 'Mzansi Health';
+
+      // 1. Watermark with the organization_from name (diagonal text from bottom left to top right)
+      doc.setTextColor(243, 244, 246); // Very light grey (slate-50 equivalent)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(54);
+      // Center watermarks diagonally (315 degrees is counter-clockwise rotation, drawing from bottom-left to top-right)
+      doc.text(orgFrom.toUpperCase(), 105, 150, { align: 'center', angle: 315 });
+
+      // 2. Document Header / Title
+      doc.setTextColor(30, 41, 59); // Slate 800
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text("MZANSI HEALTH", 105, 25, { align: 'center' });
+      
+      doc.setFontSize(13);
+      doc.setTextColor(100, 116, 139); // Slate 500
+      doc.text("Official Medical Referral Ticket", 105, 33, { align: 'center' });
+
+      // Horizontal line separator
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.setLineWidth(0.5);
+      doc.line(20, 38, 190, 38);
+
+      // 3. Referral Details Setup
+      const startX = 25;
+      let currentY = 52;
+      const spacingY = 9;
+
+      const drawDetailRow = (label, value) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(10);
+        doc.text(label, startX, currentY);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(10.5);
+        doc.text(value || 'N/A', startX + 50, currentY);
+        
+        currentY += spacingY;
+      };
+
+      drawDetailRow("Referral ID:", `#${ref.id}`);
+      drawDetailRow("Reason / Diagnosis:", ref.reason);
+      drawDetailRow("Patient Name:", ref.patient_name || `ID: ${ref.patient_id}`);
+      drawDetailRow("Patient Identity:", ref.patient_identity || 'N/A');
+      drawDetailRow("From Organization:", ref.organization_from || 'N/A');
+      drawDetailRow("To Organization:", ref.organization_to);
+      drawDetailRow("To Department:", ref.department_to);
+      drawDetailRow("To Staff Member:", ref.staff_to || 'General / Any');
+      drawDetailRow("Expected Arrival:", ref.arrival_date ? new Date(ref.arrival_date).toLocaleDateString() : 'N/A');
+      drawDetailRow("Referral Status:", ref.status ? ref.status.toUpperCase() : 'PENDING');
+      
+      if (ref.referral_key) {
+        drawDetailRow("Verification Key:", ref.referral_key);
+      }
+
+      // Add a border box around the details
+      doc.setDrawColor(203, 213, 225); // Slate 300
+      doc.setLineWidth(0.3);
+      doc.rect(20, 44, 170, currentY - 44 + 1);
+
+      // 4. Footer Note
+      currentY += 15;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 116, 139);
+      doc.text("Thank you for choosing Mzansi Health. Please present this ticket at your destination facility.", 105, currentY, { align: 'center' });
+      currentY += 5;
+      doc.text("Generated on: " + new Date().toLocaleString(), 105, currentY, { align: 'center' });
+
+      // 5. Download the PDF file directly
+      doc.save(`referral_ticket_${ref.id}.pdf`);
+    } catch (err) {
+      console.error("Failed to generate PDF ticket:", err);
+      alert("Failed to generate PDF ticket. Please try again.");
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'fulfilled':
+        return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      case 'pending':
+      default:
+        return 'bg-amber-500/20 text-amber-400 border border-amber-500/30';
+    }
+  };
+
+  return (
+    <div className='max-w-6xl mx-auto'>
+      <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        {/* Left/Main list: takes 2 cols if canManage, or 3 cols if patient */}
+        <div className={`${canManage ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white/5 border border-white/10 rounded-2xl p-6`}>
+          <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+            <FaExchangeAlt className={colors.text} />
+            Referrals Directory
+          </h2>
+          {loading ? (
+            <div className='text-center py-12 text-gray-500 text-sm'>
+              Loading referrals...
+            </div>
+          ) : referrals.length === 0 ? (
+            <div className='text-center py-12 text-gray-500 text-sm'>
+              No referrals logged.
+            </div>
+          ) : (
+            <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar text-left'>
+              {referrals.map(ref => (
+                <div 
+                  key={ref.id} 
+                  className={`bg-white/5 border border-white/5 hover:${colors.border} rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4`}
+                >
+                  {/* Clickable details area */}
+                  <div 
+                    onClick={() => setSelectedReferral(ref)}
+                    className='flex-1 cursor-pointer pr-2'
+                  >
+                    <div className='flex items-center gap-2 mb-2'>
+                      <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wide ${getStatusStyle(ref.status)}`}>
+                        {ref.status}
+                      </span>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>
+                        Arrival: {ref.arrival_date ? new Date(ref.arrival_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <h3 className='font-bold text-sm text-violet-300'>{ref.reason}</h3>
+                    <div className='grid grid-cols-2 gap-x-2 mt-2 text-xs text-gray-400'>
+                      <p><span className='font-semibold text-gray-500'>Patient:</span> {ref.patient_name || `ID: ${ref.patient_id}`}</p>
+                      <p><span className='font-semibold text-gray-500'>To Org:</span> {ref.organization_to}</p>
+                      <p><span className='font-semibold text-gray-500'>Dept:</span> {ref.department_to}</p>
+                      <p><span className='font-semibold text-gray-500'>Staff:</span> {ref.staff_to || 'General / None'}</p>
+                    </div>
+                    {ref.referral_key && (
+                      <div className='mt-2.5 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1.5 rounded-lg text-xs flex justify-between items-center max-w-xs' onClick={e => e.stopPropagation()}>
+                        <span className='text-gray-400 font-semibold uppercase tracking-wider text-[9px]'>Secure Key (Patient Only)</span>
+                        <span className='font-mono font-black text-purple-400 text-sm tracking-widest'>{ref.referral_key}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions column */}
+                  <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
+                    <button 
+                      onClick={() => handleDownloadTicket(ref)}
+                      className='cursor-pointer flex-1 md:flex-initial bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                    >
+                      Download Ticket
+                    </button>
+                    {canManage && (
+                      <>
+                        {ref.status !== 'fulfilled' && (
+                          <button 
+                            onClick={() => handleFulfillReferral(ref.id)}
+                            className='cursor-pointer flex-1 md:flex-initial bg-emerald-500 hover:bg-emerald-600 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                          >
+                            Fulfill
+                          </button>
+                        )}
+                        {Number(ref.referrer_id) === Number(user.id) && (
+                          <>
+                            <button 
+                              onClick={() => handleStartEdit(ref)}
+                              className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteReferral(ref.id)}
+                              className='cursor-pointer flex-1 md:flex-initial bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right column: Create form (Only Staff/Admin) */}
+        {canManage && (
+          <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit text-left'>
+            {editingId ? (
+              // EDIT FORM
+              <form onSubmit={(e) => handleUpdateReferral(e, editingId)} className='space-y-4'>
+                <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+                  <FaPlusCircle className={colors.text} />
+                  Edit Referral
+                </h2>
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Referral Target <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={editForm.patient_id} 
+                    onChange={e => setEditForm({ ...editForm, patient_id: e.target.value })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Target</option>
+                    {user.role?.toLowerCase() === 'admin' ? (
+                      <>
+                        <optgroup label="Patients" className='bg-slate-900'>
+                          {patients.map(p => (
+                            <option key={`pat-${p.id}`} value={p.id} className='bg-slate-900'>{p.fullname} (ID: {p.identity})</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Community Health Workers" className='bg-slate-900'>
+                          {chws.map(c => (
+                            <option key={`chw-${c.id}`} value={c.id} className='bg-slate-900'>{c.fullname} (ID: {c.identity})</option>
+                          ))}
+                        </optgroup>
+                      </>
+                    ) : (
+                      patients.map(p => (
+                        <option key={p.id} value={p.id} className='bg-slate-900'>{p.fullname} (ID: {p.identity})</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Destination Org <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={editForm.organization_to} 
+                    onChange={e => setEditForm({ ...editForm, organization_to: e.target.value, staff_to: '' })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Destination Organization</option>
+                    {organizations.map((org, idx) => (
+                      <option key={idx} value={org} className='bg-slate-900'>{org}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Department <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={editForm.department_to} 
+                    onChange={e => setEditForm({ ...editForm, department_to: e.target.value, custom_department: '' })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Department</option>
+                    {DEPARTMENTS.map((dept, idx) => (
+                      <option key={idx} value={dept} className='bg-slate-900'>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {editForm.department_to === 'Other' && (
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Custom Department <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="Enter custom department" 
+                      value={editForm.custom_department} 
+                      onChange={e => setEditForm({ ...editForm, custom_department: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Staff Recipient (To)</label>
+                  <select 
+                    value={editForm.staff_to} 
+                    onChange={e => setEditForm({ ...editForm, staff_to: e.target.value })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                  >
+                    <option value="" className='bg-slate-900'>Select Staff (Optional)</option>
+                    {editStaffList.map(st => (
+                      <option key={st.id} value={st.fullname} className='bg-slate-900'>{st.fullname}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Arrival Date <span className='text-red-400'>*</span></label>
+                  <input 
+                    type="date" 
+                    value={editForm.arrival_date} 
+                    onChange={e => setEditForm({ ...editForm, arrival_date: e.target.value })} 
+                    className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500' 
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Reason <span className='text-red-400'>*</span></label>
+                  <textarea 
+                    placeholder="Provide detailed referral reason..." 
+                    value={editForm.reason} 
+                    onChange={e => setEditForm({ ...editForm, reason: e.target.value })} 
+                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24' 
+                    required
+                  ></textarea>
+                </div>
+
+                <div className='flex gap-2 mt-2'>
+                  <button 
+                    type="button" 
+                    onClick={handleCancelEdit}
+                    className='cursor-pointer flex-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold py-2.5 rounded-xl transition-all duration-300 text-xs border border-white/10'
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className={`cursor-pointer flex-1 ${colors.primaryBg} ${colors.primaryHover} text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs shadow-lg ${colors.shadow}`}>
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            ) : (
+              // CREATE FORM
+              <form onSubmit={handleCreateReferral} className='space-y-4'>
+                <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+                  <FaPlusCircle className={colors.text} />
+                  Book Referral Log
+                </h2>
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Referral Target <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={newReferral.patient_id} 
+                    onChange={e => setNewReferral({ ...newReferral, patient_id: e.target.value })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Target</option>
+                    {user.role?.toLowerCase() === 'admin' ? (
+                      <>
+                        <optgroup label="Patients" className='bg-slate-900'>
+                          {patients.map(p => (
+                            <option key={`pat-${p.id}`} value={p.id} className='bg-slate-900'>{p.fullname} (ID: {p.identity})</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="Community Health Workers" className='bg-slate-900'>
+                          {chws.map(c => (
+                            <option key={`chw-${c.id}`} value={c.id} className='bg-slate-900'>{c.fullname} (ID: {c.identity})</option>
+                          ))}
+                        </optgroup>
+                      </>
+                    ) : (
+                      patients.map(p => (
+                        <option key={p.id} value={p.id} className='bg-slate-900'>{p.fullname} (ID: {p.identity})</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Destination Org <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={newReferral.organization_to} 
+                    onChange={e => setNewReferral({ ...newReferral, organization_to: e.target.value, staff_to: '' })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Destination Organization</option>
+                    {organizations.map((org, idx) => (
+                      <option key={idx} value={org} className='bg-slate-900'>{org}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Department <span className='text-red-400'>*</span></label>
+                  <select 
+                    value={newReferral.department_to} 
+                    onChange={e => setNewReferral({ ...newReferral, department_to: e.target.value, custom_department: '' })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                    required
+                  >
+                    <option value="" disabled className='bg-slate-900'>Select Department</option>
+                    {DEPARTMENTS.map((dept, idx) => (
+                      <option key={idx} value={dept} className='bg-slate-900'>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {newReferral.department_to === 'Other' && (
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Custom Department <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="Enter custom department" 
+                      value={newReferral.custom_department} 
+                      onChange={e => setNewReferral({ ...newReferral, custom_department: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Staff Recipient (To)</label>
+                  <select 
+                    value={newReferral.staff_to} 
+                    onChange={e => setNewReferral({ ...newReferral, staff_to: e.target.value })} 
+                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                  >
+                    <option value="" className='bg-slate-900'>Select Staff (Optional)</option>
+                    {staffList.map(st => (
+                      <option key={st.id} value={st.fullname} className='bg-slate-900'>{st.fullname}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Arrival Date <span className='text-red-400'>*</span></label>
+                  <input 
+                    type="date" 
+                    value={newReferral.arrival_date} 
+                    onChange={e => setNewReferral({ ...newReferral, arrival_date: e.target.value })} 
+                    className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-violet-500' 
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Reason <span className='text-red-400'>*</span></label>
+                  <textarea 
+                    placeholder="Provide reason for booking (e.g. cardiac follow-up consult)..." 
+                    value={newReferral.reason} 
+                    onChange={e => setNewReferral({ ...newReferral, reason: e.target.value })} 
+                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-24' 
+                    required
+                  ></textarea>
+                </div>
+
+                <button type="submit" className={`cursor-pointer w-full ${colors.primaryBg} ${colors.primaryHover} text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-2 hover:scale-[1.01] active:scale-95 shadow-lg ${colors.shadow}`}>
+                  Book Referral
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Referral Card Modal Detail View */}
+      {selectedReferral && (
+        <div className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300'>
+          <div className='bg-[#0c0f13] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative animate-in fade-in zoom-in duration-200 text-left text-white'>
+            {/* Header / Colored banner */}
+            <div className={`p-6 ${colors.primaryBg} text-black flex justify-between items-start`}>
+              <div>
+                <span className='text-[10px] font-black uppercase tracking-widest bg-black/20 text-black px-2 py-0.5 rounded-full'>
+                  Referral ID: #{selectedReferral.id}
+                </span>
+                <h3 className='text-xl font-black mt-2 tracking-tight'>Referral Card</h3>
+              </div>
+              <button 
+                onClick={() => setSelectedReferral(null)}
+                className='cursor-pointer text-black hover:text-black/70 font-bold text-lg p-1 bg-black/5 rounded-full'
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Details */}
+            <div className='p-6 space-y-4'>
+              <div className='grid grid-cols-2 gap-4'>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Patient Name</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.patient_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Patient Identity</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.patient_identity || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 border-t border-white/5 pt-3'>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Originating Clinic (From)</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.organization_from || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Destination Clinic (To)</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.organization_to || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 border-t border-white/5 pt-3'>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Referrer Name</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.referrer_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Referrer Role</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.referrer_role || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 border-t border-white/5 pt-3'>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Destination Department</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.department_to || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Destination Staff Recipient</h4>
+                  <p className='text-sm font-semibold text-white'>{selectedReferral.staff_to || 'General / None'}</p>
+                </div>
+              </div>
+
+              <div className='border-t border-white/5 pt-3'>
+                <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Arrival Date</h4>
+                <p className='text-sm font-semibold text-white'>
+                  {selectedReferral.arrival_date ? new Date(selectedReferral.arrival_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                </p>
+              </div>
+
+              <div className='border-t border-white/5 pt-3'>
+                <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider'>Reason for Referral</h4>
+                <p className='text-xs text-gray-300 leading-relaxed bg-white/5 border border-white/5 rounded-xl p-3 mt-1'>
+                  {selectedReferral.reason}
+                </p>
+              </div>
+
+              <div className='grid grid-cols-2 gap-4 border-t border-white/5 pt-3 items-center'>
+                <div>
+                  <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1'>Status</h4>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider ${getStatusStyle(selectedReferral.status)}`}>
+                    {selectedReferral.status}
+                  </span>
+                </div>
+
+                {selectedReferral.referral_key && (
+                  <div>
+                    <h4 className='text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1'>Secure Verification Key</h4>
+                    <span className='font-mono font-black text-purple-400 text-sm tracking-widest bg-purple-500/10 border border-purple-500/20 px-2 py-1 rounded'>
+                      {selectedReferral.referral_key}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className='bg-black/30 border-t border-white/5 p-4 flex flex-col sm:flex-row gap-3'>
+              <button 
+                onClick={() => handleDownloadTicket(selectedReferral)}
+                className='cursor-pointer flex-1 bg-violet-600 hover:bg-violet-700 text-white font-extrabold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.01]'
+              >
+                Download Ticket
+              </button>
+              {canManage && selectedReferral.status !== 'fulfilled' && (
+                <button 
+                  onClick={() => handleFulfillReferral(selectedReferral.id)}
+                  className='cursor-pointer flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.01]'
+                >
+                  Verify Key & Fulfill
+                </button>
+              )}
+              <button 
+                onClick={() => setSelectedReferral(null)}
+                className='cursor-pointer flex-1 bg-white/5 hover:bg-white/10 text-gray-300 font-bold py-2.5 rounded-xl text-xs transition-all duration-300 border border-white/10'
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- Admin Dashboard Component ---
 const AdminDashboard = ({ user, handleLogout }) => {
   const [users, setUsers] = React.useState([]);
@@ -524,17 +1984,9 @@ const AdminDashboard = ({ user, handleLogout }) => {
   const [organizationsCount, setOrganizationsCount] = React.useState(0);
   const [activeTab, setActiveTab] = React.useState('overview');
 
-  // --- Mock Databases for Admin Features ---
-  const [patients, setPatients] = React.useState([
-    { id: 1, fullname: "Thabo Cele", identity: "9508125432087", phone_number: "0711234567", email: "thabo@cele.co.za", gender: "Male", age: 31, organization: user.organization },
-    { id: 2, fullname: "Nomvula Khumalo", identity: "8804030987182", phone_number: "0829876543", email: "nomvula@khumalo.org", gender: "Female", age: 38, organization: user.organization },
-    { id: 3, fullname: "Johan Botha", identity: "7011225091083", phone_number: "0605551234", email: "johan@botha.net", gender: "Male", age: 55, organization: user.organization }
-  ]);
+  // --- Patients Database ---
+  const [patients, setPatients] = React.useState([]);
 
-  const [referrals, setReferrals] = React.useState([
-    { id: 1, patientName: "Thabo Cele", reason: "Cardiac consultation follow-up", source: "Mitchells Plain Clinic", destination: user.organization || "Cape Town Clinic", status: "Pending", type: "Incoming" },
-    { id: 2, patientName: "Nomvula Khumalo", reason: "Advanced Diabetic Retinopathy screening", source: user.organization || "Cape Town Clinic", destination: "Tygerberg Academic Hospital", status: "Accepted", type: "Outgoing" }
-  ]);
 
   const [chws, setChws] = React.useState([
     { id: 1, fullname: "Sizwe Dube", identity: "9102145321087", phone_number: "0734445555", email: "sizwe.dube@ubuntuhealth.org", area: "Khayelitsha Site C", tasks: [
@@ -557,22 +2009,40 @@ const AdminDashboard = ({ user, handleLogout }) => {
     { id: 3, fullname: "Sister Helen Ndlovu", role: "Senior Nurse", email: "h.ndlovu@ubuntuhealth.org", phone_number: "0625556666", availability: "On Duty" }
   ]);
 
-  const [reviews, setReviews] = React.useState([
-    { id: 1, rating: 5, comment: "Excellent speed in registering and assigning tasks to workers!", date: "2026-06-12" },
-    { id: 2, rating: 4, comment: "Very clean dark theme and responsive navigation layouts.", date: "2026-06-13" }
-  ]);
+  // Reviews state removed to use database reviews in ReviewsSection
 
   const [chatMessages, setChatMessages] = React.useState([
     { id: 1, sender: "System", recipient: "All", message: "Welcome to the UbuntuHealth Admin Chat Room. Select a target group or contact to start.", timestamp: "16:00" }
   ]);
 
   // --- Form Input States ---
-  const [newPatient, setNewPatient] = React.useState({ fullname: '', identity: '', phone_number: '', email: '', gender: 'Male', age: '' });
-  const [newReferral, setNewReferral] = React.useState({ patientName: '', reason: '', source: '', destination: '', type: 'Incoming' });
-  const [newChw, setNewChw] = React.useState({ fullname: '', identity: '', phone_number: '', email: '', area: '' });
+  const [newPatient, setNewPatient] = React.useState({
+    fullname: '',
+    identity: '',
+    gender: 'Male',
+    password: '',
+    email: '',
+    phone_number: '',
+    diagnosis: '',
+    house_number: '',
+    surbub: '',
+    municipality: '',
+    city: '',
+    nok_fullname: '',
+    nok_phone: '',
+    nok_email: ''
+  });
+  const [newChw, setNewChw] = React.useState({
+    employee_id: '',
+    fullname: '',
+    identity: '',
+    password: '',
+    email: '',
+    phone_number: ''
+  });
   const [newTask, setNewTask] = React.useState({ title: '', desc: '', priority: 'High', deadline: '' });
   const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
-  const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
+  // newReview state removed to use database reviews in ReviewsSection
   
   const [chatTarget, setChatTarget] = React.useState('patients'); // 'patients', 'chws', 'staff', or specific name
   const [chatInput, setChatInput] = React.useState('');
@@ -584,12 +2054,24 @@ const AdminDashboard = ({ user, handleLogout }) => {
     const fetchAdminData = async () => {
       try {
         setLoading(true);
-        const [usersRes, orgsRes] = await Promise.all([
+        const [usersRes, orgsRes, patientsRes, chwsRes] = await Promise.all([
           axios.get('/api/auth/users'),
-          axios.get('/api/auth/organizations')
+          axios.get('/api/auth/organizations'),
+          axios.get('/api/patients'),
+          axios.get('/api/chw')
         ]);
         setUsers(usersRes.data.users || []);
         setOrganizationsCount(orgsRes.data.organizations?.length || 0);
+        setPatients(patientsRes.data.patients || []);
+        
+        const loadedChws = (chwsRes.data.chws || []).map(c => ({
+          ...c,
+          tasks: c.tasks || []
+        }));
+        setChws(loadedChws);
+        if (loadedChws.length > 0) {
+          setSelectedChwId(loadedChws[0].id);
+        }
       } catch (err) {
         console.error("Failed to fetch admin dashboard data:", err);
         setError(err.response?.data?.message || "Failed to load dashboard data");
@@ -601,51 +2083,73 @@ const AdminDashboard = ({ user, handleLogout }) => {
     fetchAdminData();
   }, []);
 
-  const totalUsers = users.length;
+  const totalUsers = users.length + patients.length;
   const dbStaffCount = users.filter(u => u.role?.toLowerCase() === 'staff').length;
   const adminCount = users.filter(u => u.role?.toLowerCase() === 'admin').length;
-  const patientCount = users.filter(u => u.role?.toLowerCase() === 'patient' || !u.role).length;
+  const patientCount = patients.length;
 
   const activeChw = chws.find(c => c.id === selectedChwId);
 
   // --- Form Submit Handlers (State-based updates) ---
-  const handleRegisterPatient = (e) => {
+  const handleRegisterPatient = async (e) => {
     e.preventDefault();
-    if (!newPatient.fullname || !newPatient.identity || !newPatient.phone_number) return;
-    const patientToAdd = {
-      id: patients.length + 1,
-      ...newPatient,
-      age: parseInt(newPatient.age) || 30,
-      organization: user.organization
-    };
-    setPatients([...patients, patientToAdd]);
-    setNewPatient({ fullname: '', identity: '', phone_number: '', email: '', gender: 'Male', age: '' });
+    if (!newPatient.fullname || !newPatient.identity || !newPatient.gender || !newPatient.password || !newPatient.diagnosis || !newPatient.nok_fullname) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const res = await axios.post('/api/patients', newPatient);
+      setPatients([res.data.patient, ...patients]);
+      setNewPatient({
+        fullname: '',
+        identity: '',
+        gender: 'Male',
+        password: '',
+        email: '',
+        phone_number: '',
+        diagnosis: '',
+        house_number: '',
+        surbub: '',
+        municipality: '',
+        city: '',
+        nok_fullname: '',
+        nok_phone: '',
+        nok_email: ''
+      });
+      alert("Patient registered successfully!");
+    } catch (err) {
+      console.error("Failed to register patient:", err);
+      alert(err.response?.data?.message || "Failed to register patient");
+    }
   };
 
-  const handleCreateReferral = (e) => {
+  const handleRegisterChw = async (e) => {
     e.preventDefault();
-    if (!newReferral.patientName || !newReferral.reason) return;
-    const referralToAdd = {
-      id: referrals.length + 1,
-      ...newReferral,
-      source: newReferral.type === 'Incoming' ? newReferral.source : (user.organization || 'Cape Town Clinic'),
-      destination: newReferral.type === 'Outgoing' ? newReferral.destination : (user.organization || 'Cape Town Clinic'),
-      status: 'Pending'
-    };
-    setReferrals([...referrals, referralToAdd]);
-    setNewReferral({ patientName: '', reason: '', source: '', destination: '', type: 'Incoming' });
-  };
-
-  const handleRegisterChw = (e) => {
-    e.preventDefault();
-    if (!newChw.fullname || !newChw.identity || !newChw.area) return;
-    const chwToAdd = {
-      id: chws.length + 1,
-      ...newChw,
-      tasks: []
-    };
-    setChws([...chws, chwToAdd]);
-    setNewChw({ fullname: '', identity: '', phone_number: '', email: '', area: '' });
+    if (!newChw.employee_id || !newChw.fullname || !newChw.identity || !newChw.password) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    try {
+      const res = await axios.post('/api/chw', newChw);
+      const chwToAdd = {
+        ...res.data.chw,
+        tasks: []
+      };
+      setChws([chwToAdd, ...chws]);
+      setSelectedChwId(chwToAdd.id);
+      setNewChw({
+        employee_id: '',
+        fullname: '',
+        identity: '',
+        password: '',
+        email: '',
+        phone_number: ''
+      });
+      alert("Community Health Worker registered successfully!");
+    } catch (err) {
+      console.error("Failed to register CHW:", err);
+      alert(err.response?.data?.message || "Failed to register CHW");
+    }
   };
 
   const handleAssignTask = (e) => {
@@ -687,18 +2191,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
     setNewAppointment({ patientName: '', staffName: '', date: '', time: '' });
   };
 
-  const handleCreateReview = (e) => {
-    e.preventDefault();
-    if (!newReview.comment) return;
-    const reviewToAdd = {
-      id: reviews.length + 1,
-      rating: newReview.rating,
-      comment: newReview.comment,
-      date: new Date().toISOString().split('T')[0]
-    };
-    setReviews([reviewToAdd, ...reviews]);
-    setNewReview({ rating: 5, comment: '' });
-  };
+  // handleCreateReview removed to use database reviews in ReviewsSection
 
   const handleSendChatMessage = (e) => {
     e.preventDefault();
@@ -885,79 +2378,224 @@ const AdminDashboard = ({ user, handleLogout }) => {
                 Patients for {user.organization || 'Cape Town Clinic'}
               </h2>
               <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
-                {patients.map(p => (
-                  <div key={p.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex justify-between items-center'>
-                    <div>
-                      <h3 className='font-bold text-sm'>{p.fullname}</h3>
-                      <p className='text-xs text-gray-500'>ID: {p.identity} | Age: {p.age} | {p.gender}</p>
-                    </div>
-                    <div className='text-right text-xs text-gray-400'>
-                      <p>{p.phone_number}</p>
-                      <p className='mt-0.5'>{p.email}</p>
-                    </div>
+                {patients.length === 0 ? (
+                  <div className='text-center py-12 text-gray-500 text-sm'>
+                    No registered patients found.
                   </div>
-                ))}
+                ) : (
+                  patients.map(p => (
+                    <div key={p.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+                      <div className='flex-1 pr-2 text-left'>
+                        <h3 className='font-bold text-sm text-violet-300'>{p.fullname}</h3>
+                        <p className='text-xs text-gray-300 mt-1'><span className='font-semibold text-gray-400'>Identity:</span> {p.identity} | <span className='font-semibold text-gray-400'>Gender:</span> {p.gender}</p>
+                        <p className='text-xs text-gray-300 mt-0.5'><span className='font-semibold text-gray-400'>Diagnosis:</span> {p.diagnosis}</p>
+                        {(p.house_number || p.surbub || p.city) && (
+                          <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Address:</span> {p.house_number || ''} {p.surbub || ''} {p.city || ''}</p>
+                        )}
+                        <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Next of Kin:</span> {p.nok_fullname} {p.nok_phone ? `(${p.nok_phone})` : ''}</p>
+                      </div>
+                      <div className='text-right text-xs text-gray-400 shrink-0 md:border-l md:border-white/5 md:pl-4'>
+                        <p className='font-medium text-gray-300'>{p.phone_number || 'No Phone'}</p>
+                        <p className='mt-0.5 text-gray-400'>{p.email || 'No Email'}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
+            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit overflow-y-auto max-h-[85vh] custom-scrollbar'>
+              <h2 className='text-lg font-bold flex items-center gap-2 mb-4 sticky top-0 bg-[#0c0f13] py-2 z-10'>
                 <FaPlusCircle className='text-fuchsia-400' />
                 Register New Patient
               </h2>
-              <form onSubmit={handleRegisterPatient} className='space-y-3.5'>
-                <input 
-                  type="text" 
-                  placeholder="Full Name" 
-                  value={newPatient.fullname} 
-                  onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="ID Number (13 digits)" 
-                  value={newPatient.identity} 
-                  onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="Phone Number" 
-                  value={newPatient.phone_number} 
-                  onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                  required
-                />
-                <input 
-                  type="email" 
-                  placeholder="Email Address" 
-                  value={newPatient.email} 
-                  onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
-                  className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                />
-                <div className='grid grid-cols-2 gap-2'>
-                  <select 
-                    value={newPatient.gender} 
-                    onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
-                    className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
-                  >
-                    <option value="Male" className='bg-slate-900'>Male</option>
-                    <option value="Female" className='bg-slate-900'>Female</option>
-                    <option value="Other" className='bg-slate-900'>Other</option>
-                  </select>
-                  <input 
-                    type="number" 
-                    placeholder="Age" 
-                    value={newPatient.age} 
-                    onChange={e => setNewPatient({ ...newPatient, age: e.target.value })} 
-                    className='w-full px-4.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 text-xs' 
-                    required
-                  />
+              <form onSubmit={handleRegisterPatient} className='space-y-4 text-left'>
+                
+                {/* --- Section 1: Core Details --- */}
+                <div className='space-y-3.5'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>1. Core Profile</h3>
+                  
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Sipho Nkosi" 
+                      value={newPatient.fullname} 
+                      onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>ID Number <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="13-digit SA ID" 
+                        value={newPatient.identity} 
+                        onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Gender <span className='text-red-400'>*</span></label>
+                      <select 
+                        value={newPatient.gender} 
+                        onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
+                        className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                        required
+                      >
+                        <option value="Male" className='bg-slate-900'>Male</option>
+                        <option value="Female" className='bg-slate-900'>Female</option>
+                        <option value="Other" className='bg-slate-900'>Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="password" 
+                        placeholder="Password for login" 
+                        value={newPatient.password} 
+                        onChange={e => setNewPatient({ ...newPatient, password: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Diagnosis <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Chronic Hypertension" 
+                        value={newPatient.diagnosis} 
+                        onChange={e => setNewPatient({ ...newPatient, diagnosis: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="patient@gmail.com" 
+                        value={newPatient.email} 
+                        onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0712345678" 
+                        value={newPatient.phone_number} 
+                        onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
                 </div>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Register Patient
+
+                {/* --- Section 2: Residential Address --- */}
+                <div className='space-y-3.5 pt-2'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>2. Location Details</h3>
+                  
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>House Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Room 4 / 12" 
+                        value={newPatient.house_number} 
+                        onChange={e => setNewPatient({ ...newPatient, house_number: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Surbub</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Khayelitsha" 
+                        value={newPatient.surbub} 
+                        onChange={e => setNewPatient({ ...newPatient, surbub: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Municipality</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. City of Cape Town" 
+                        value={newPatient.municipality} 
+                        onChange={e => setNewPatient({ ...newPatient, municipality: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>City</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Cape Town" 
+                        value={newPatient.city} 
+                        onChange={e => setNewPatient({ ...newPatient, city: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- Section 3: Next of Kin --- */}
+                <div className='space-y-3.5 pt-2'>
+                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>3. Next of Kin</h3>
+                  
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Nomvula Nkosi" 
+                      value={newPatient.nok_fullname} 
+                      onChange={e => setNewPatient({ ...newPatient, nok_fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0823456789" 
+                        value={newPatient.nok_phone} 
+                        onChange={e => setNewPatient({ ...newPatient, nok_phone: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                      <input 
+                        type="email" 
+                        placeholder="nok@example.com" 
+                        value={newPatient.nok_email} 
+                        onChange={e => setNewPatient({ ...newPatient, nok_email: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-4 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
+                  Register Patient Profile
                 </button>
               </form>
             </div>
@@ -966,136 +2604,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
         {/* --- Referrals Section --- */}
         {activeTab === 'referrals' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 space-y-6'>
-              {/* Incoming table */}
-              <div className='bg-white/5 border border-white/10 rounded-2xl p-6'>
-                <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                  <FaExchangeAlt className='text-violet-400' />
-                  Incoming Referrals
-                </h2>
-                <div className='overflow-x-auto'>
-                  <table className='w-full text-left text-xs border-collapse'>
-                    <thead>
-                      <tr className='border-b border-white/10 text-gray-400 font-semibold'>
-                        <th className='pb-3'>Patient</th>
-                        <th className='pb-3'>Reason</th>
-                        <th className='pb-3'>Source Node</th>
-                        <th className='pb-3'>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className='divide-y divide-white/5'>
-                      {referrals.filter(r => r.type === 'Incoming').map(r => (
-                        <tr key={r.id} className='hover:bg-white/5'>
-                          <td className='py-3 font-semibold'>{r.patientName}</td>
-                          <td className='py-3 text-gray-300'>{r.reason}</td>
-                          <td className='py-3 text-gray-400'>{r.source}</td>
-                          <td className='py-3'>
-                            <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] ${
-                              r.status === 'Accepted' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            }`}>{r.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Outgoing table */}
-              <div className='bg-white/5 border border-white/10 rounded-2xl p-6'>
-                <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                  <FaExchangeAlt className='text-fuchsia-400' />
-                  Outgoing Referrals
-                </h2>
-                <div className='overflow-x-auto'>
-                  <table className='w-full text-left text-xs border-collapse'>
-                    <thead>
-                      <tr className='border-b border-white/10 text-gray-400 font-semibold'>
-                        <th className='pb-3'>Patient</th>
-                        <th className='pb-3'>Reason</th>
-                        <th className='pb-3'>Destination</th>
-                        <th className='pb-3'>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className='divide-y divide-white/5'>
-                      {referrals.filter(r => r.type === 'Outgoing').map(r => (
-                        <tr key={r.id} className='hover:bg-white/5'>
-                          <td className='py-3 font-semibold'>{r.patientName}</td>
-                          <td className='py-3 text-gray-300'>{r.reason}</td>
-                          <td className='py-3 text-gray-400'>{r.destination}</td>
-                          <td className='py-3'>
-                            <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] ${
-                              r.status === 'Accepted' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            }`}>{r.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Create Referral Form */}
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Create Referral Log
-              </h2>
-              <form onSubmit={handleCreateReferral} className='space-y-4'>
-                <div>
-                  <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Type</label>
-                  <select 
-                    value={newReferral.type} 
-                    onChange={e => setNewReferral({ ...newReferral, type: e.target.value })} 
-                    className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
-                  >
-                    <option value="Incoming" className='bg-slate-900'>Incoming</option>
-                    <option value="Outgoing" className='bg-slate-900'>Outgoing</option>
-                  </select>
-                </div>
-                <input 
-                  type="text" 
-                  placeholder="Patient Name" 
-                  value={newReferral.patientName} 
-                  onChange={e => setNewReferral({ ...newReferral, patientName: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                <input 
-                  type="text" 
-                  placeholder="Reason for Referral" 
-                  value={newReferral.reason} 
-                  onChange={e => setNewReferral({ ...newReferral, reason: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                {newReferral.type === 'Incoming' ? (
-                  <input 
-                    type="text" 
-                    placeholder="Originating Clinic/Hospital" 
-                    value={newReferral.source} 
-                    onChange={e => setNewReferral({ ...newReferral, source: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                ) : (
-                  <input 
-                    type="text" 
-                    placeholder="Destination Hospital" 
-                    value={newReferral.destination} 
-                    onChange={e => setNewReferral({ ...newReferral, destination: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                )}
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Submit Referral
-                </button>
-              </form>
-            </div>
-          </div>
+          <ReferralsSection user={user} />
         )}
 
         {/* --- Community Health Workers Section --- */}
@@ -1117,18 +2626,18 @@ const AdminDashboard = ({ user, handleLogout }) => {
                         selectedChwId === c.id ? 'border-violet-500 bg-white/10' : 'border-white/5 hover:border-violet-500/20'
                       }`}
                     >
-                      <div>
-                        <h3 className='font-bold text-sm'>{c.fullname}</h3>
-                        <p className='text-xs text-gray-400'>Identity: {c.identity} | Area: <span className='text-violet-300'>{c.area}</span></p>
-                        {c.tasks.length > 0 && (
+                      <div className='text-left'>
+                        <h3 className='font-bold text-sm text-violet-300'>{c.fullname}</h3>
+                        <p className='text-xs text-gray-400'>Identity: {c.identity} | Employee ID: <span className='text-violet-300'>{c.employee_id}</span></p>
+                        {c.tasks && c.tasks.length > 0 && (
                           <p className='text-[10px] text-fuchsia-300 mt-1 font-medium'>
                             Latest Task: "{c.tasks[0].title}" ({c.tasks[0].status})
                           </p>
                         )}
                       </div>
                       <div className='text-right text-xs text-gray-500'>
-                        <p>{c.phone_number}</p>
-                        <p>{c.email}</p>
+                        <p>{c.phone_number || 'No Phone'}</p>
+                        <p>{c.email || 'No Email'}</p>
                       </div>
                     </div>
                   ))}
@@ -1141,48 +2650,75 @@ const AdminDashboard = ({ user, handleLogout }) => {
                   <FaPlusCircle className='text-fuchsia-400' />
                   Register CHW
                 </h2>
-                <form onSubmit={handleRegisterChw} className='space-y-3.5'>
-                  <input 
-                    type="text" 
-                    placeholder="Full Name" 
-                    value={newChw.fullname} 
-                    onChange={e => setNewChw({ ...newChw, fullname: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="ID Number (13 digits)" 
-                    value={newChw.identity} 
-                    onChange={e => setNewChw({ ...newChw, identity: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Phone Number" 
-                    value={newChw.phone_number} 
-                    onChange={e => setNewChw({ ...newChw, phone_number: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
-                  <input 
-                    type="email" 
-                    placeholder="Email (Optional)" 
-                    value={newChw.email} 
-                    onChange={e => setNewChw({ ...newChw, email: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Assigned Outreach Area" 
-                    value={newChw.area} 
-                    onChange={e => setNewChw({ ...newChw, area: e.target.value })} 
-                    className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                    required
-                  />
+                <form onSubmit={handleRegisterChw} className='space-y-3.5 text-left'>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Employee ID <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. CHW-2026-904" 
+                      value={newChw.employee_id} 
+                      onChange={e => setNewChw({ ...newChw, employee_id: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Sizwe Dube" 
+                      value={newChw.fullname} 
+                      onChange={e => setNewChw({ ...newChw, fullname: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                      required
+                    />
+                  </div>
+                  <div className='grid grid-cols-2 gap-2'>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>SA ID Number <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="text" 
+                        placeholder="13-digit SA ID" 
+                        value={newChw.identity} 
+                        onChange={e => setNewChw({ ...newChw, identity: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                      <input 
+                        type="password" 
+                        placeholder="Password for login" 
+                        value={newChw.password} 
+                        onChange={e => setNewChw({ ...newChw, password: e.target.value })} 
+                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="chw@ubuntuhealth.org" 
+                      value={newChw.email} 
+                      onChange={e => setNewChw({ ...newChw, email: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                    />
+                  </div>
+                  <div>
+                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number (10 digits)</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 0731112222" 
+                      value={newChw.phone_number} 
+                      onChange={e => setNewChw({ ...newChw, phone_number: e.target.value })} 
+                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                    />
+                  </div>
                   <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                    Register CHW
+                    Register CHW Profile
                   </button>
                 </form>
               </div>
@@ -1279,98 +2815,9 @@ const AdminDashboard = ({ user, handleLogout }) => {
             )}
           </div>
         )}
-
         {/* --- Appointments Section --- */}
         {activeTab === 'appointments' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
-              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
-                <FaCalendarAlt className='text-violet-400' />
-                Organization Appointments
-              </h2>
-              <div className='overflow-x-auto'>
-                <table className='w-full text-left text-xs border-collapse'>
-                  <thead>
-                    <tr className='border-b border-white/10 text-gray-400 font-semibold'>
-                      <th className='pb-3'>Patient</th>
-                      <th className='pb-3'>Assigned Doctor</th>
-                      <th className='pb-3'>Date</th>
-                      <th className='pb-3'>Time</th>
-                      <th className='pb-3'>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className='divide-y divide-white/5'>
-                    {appointments.map(app => (
-                      <tr key={app.id} className='hover:bg-white/5'>
-                        <td className='py-3 font-semibold'>{app.patientName}</td>
-                        <td className='py-3 text-gray-300'>{app.staffName}</td>
-                        <td className='py-3 text-gray-400'>{app.date}</td>
-                        <td className='py-3 text-gray-400'>{app.time}</td>
-                        <td className='py-3'>
-                          <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30`}>{app.status}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Create Appointment form */}
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Schedule Appointment
-              </h2>
-              <form onSubmit={handleCreateAppointment} className='space-y-4'>
-                <input 
-                  type="text" 
-                  placeholder="Patient Name" 
-                  value={newAppointment.patientName} 
-                  onChange={e => setNewAppointment({ ...newAppointment, patientName: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                <select 
-                  value={newAppointment.staffName} 
-                  onChange={e => setNewAppointment({ ...newAppointment, staffName: e.target.value })} 
-                  className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
-                  required
-                >
-                  <option value="" disabled className='bg-slate-900'>Select Doctor/Staff</option>
-                  {staff.map(s => (
-                    <option key={s.id} value={s.fullname} className='bg-slate-900'>{s.fullname} ({s.role})</option>
-                  ))}
-                </select>
-                <div className='grid grid-cols-2 gap-2'>
-                  <div>
-                    <label className='block text-[9px] uppercase font-bold text-gray-500 mb-1'>Date</label>
-                    <input 
-                      type="date" 
-                      value={newAppointment.date} 
-                      onChange={e => setNewAppointment({ ...newAppointment, date: e.target.value })} 
-                      className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className='block text-[9px] uppercase font-bold text-gray-500 mb-1'>Time</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 10:30 AM" 
-                      value={newAppointment.time} 
-                      onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
-                      className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      required
-                    />
-                  </div>
-                </div>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Schedule
-                </button>
-              </form>
-            </div>
-          </div>
+          <AppointmentsSection user={user} />
         )}
 
         {/* --- Staff Section --- */}
@@ -1425,61 +2872,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
         {/* --- Reviews Section --- */}
         {activeTab === 'reviews' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
-              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
-                <FaStar className='text-violet-400' />
-                My Reviews & Feedback Log
-              </h2>
-              <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
-                {reviews.map(r => (
-                  <div key={r.id} className='bg-white/5 border border-white/5 rounded-xl p-4'>
-                    <div className='flex justify-between items-center mb-2'>
-                      <div className='flex items-center gap-1'>
-                        {[...Array(5)].map((_, i) => (
-                          <FaStar key={i} className={i < r.rating ? 'text-yellow-500' : 'text-gray-700'} size={12} />
-                        ))}
-                      </div>
-                      <span className='text-[10px] text-gray-500'>{r.date}</span>
-                    </div>
-                    <p className='text-xs text-gray-300 italic'>"{r.comment}"</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Create review form */}
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Write Web Feedback
-              </h2>
-              <form onSubmit={handleCreateReview} className='space-y-4'>
-                <div>
-                  <label className='block text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider'>Rating Stars</label>
-                  <select 
-                    value={newReview.rating} 
-                    onChange={e => setNewReview({ ...newReview, rating: parseInt(e.target.value) })} 
-                    className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
-                  >
-                    {[5, 4, 3, 2, 1].map(num => (
-                      <option key={num} value={num} className='bg-slate-900'>{num} Stars</option>
-                    ))}
-                  </select>
-                </div>
-                <textarea 
-                  placeholder="Your comments or review about the website system..." 
-                  value={newReview.comment} 
-                  onChange={e => setNewReview({ ...newReview, comment: e.target.value })} 
-                  className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs resize-none h-28' 
-                  required
-                ></textarea>
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-2.5 rounded-xl transition-all duration-300 text-xs mt-2'>
-                  Submit Feedback
-                </button>
-              </form>
-            </div>
-          </div>
+          <ReviewsSection user={user} />
         )}
 
         {/* --- Chat Room Section --- */}
