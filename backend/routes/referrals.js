@@ -148,6 +148,49 @@ router.post('/', protect, async (req, res) => {
             delete responseData.referral_key;
         }
 
+        // Trigger notifications for both the referred patient/CHW, the creator/referrer user, and destination staff
+        const createNotification = req.app.get('createNotification');
+        if (createNotification) {
+            const referrerChatId = `user_${req.user.id}`;
+            const isPatient = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]).then(r => r.rows.length > 0);
+            const patientChatId = `${isPatient ? 'patient' : 'chw'}_${patient_id}`;
+            const patientName = responseData.patient_name || 'Patient';
+            const destOrg = organization_to.trim();
+
+            // Notify creator
+            createNotification(
+                referrerChatId,
+                'Referral Logged',
+                `You successfully referred ${patientName} to "${destOrg}" (${department_to.trim()}).`
+            );
+
+            // Notify referred patient/CHW
+            createNotification(
+                patientChatId,
+                'New Referral Received',
+                `A new referral has been logged for you to "${destOrg}" (${department_to.trim()}) by ${req.user.fullname || 'your health provider'}.`
+            );
+
+            // Notify destination staff if assigned
+            if (staff_to) {
+                pool.query(
+                    "SELECT id FROM users.user_profiles WHERE LOWER(fullname) = LOWER($1) AND LOWER(role) = 'staff'",
+                    [staff_to.trim()]
+                ).then(staffResult => {
+                    if (staffResult.rows.length > 0) {
+                        const staffUserId = `user_${staffResult.rows[0].id}`;
+                        createNotification(
+                            staffUserId,
+                            'New Referral Assigned',
+                            `A new referral for ${patientName} has been assigned to you at "${destOrg}" (${department_to.trim()}) by ${req.user.fullname || 'another provider'}.`
+                        );
+                    }
+                }).catch(err => {
+                    console.error('Error notifying target referral staff:', err);
+                });
+            }
+        }
+
         // Return response without the key, as creator must not see the key
         return res.status(201).json({ referral: responseData });
     } catch (error) {
@@ -190,6 +233,11 @@ router.put('/:id', protect, async (req, res) => {
         }
 
         const referral = referralResult.rows[0];
+
+        // A fulfilled referral cannot be edited
+        if (referral.status === 'fulfilled') {
+            return res.status(400).json({ message: 'Access denied. A fulfilled referral cannot be edited.' });
+        }
 
         // Authorization checks: Only the creator of the referral can edit it
         const isCreator = Number(referral.referrer_id) === Number(req.user.id);

@@ -3,33 +3,12 @@ import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
-import { 
-  FaUserMd, 
-  FaUser, 
-  FaUsers, 
-  FaCalendarAlt, 
-  FaPrescriptionBottle, 
-  FaClipboardList, 
-  FaPlus, 
-  FaHeartbeat, 
-  FaRunning, 
-  FaTint, 
-  FaSignOutAlt, 
-  FaMedkit, 
-  FaFileMedicalAlt, 
-  FaTasks,
-  FaExchangeAlt,
-  FaStar,
-  FaComments,
-  FaClock,
-  FaHospital,
-  FaShieldAlt,
-  FaPlusCircle,
-  FaPaperPlane
+import { io } from 'socket.io-client';
+import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck
 } from 'react-icons/fa';
 
 // --- Staff Dashboard Component ---
-const StaffDashboard = ({ user, handleLogout }) => {
+const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   const menuItems = [
@@ -40,6 +19,7 @@ const StaffDashboard = ({ user, handleLogout }) => {
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'telehealth', label: 'Telehealth', icon: <FaHeartbeat /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -101,9 +81,12 @@ const StaffDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-emerald-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Dr. {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Dr. {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Quick Stats Grid */}
@@ -190,6 +173,8 @@ const StaffDashboard = ({ user, handleLogout }) => {
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -205,7 +190,7 @@ const StaffDashboard = ({ user, handleLogout }) => {
 };
 
 // --- Patient Dashboard Component ---
-const PatientDashboard = ({ user, handleLogout }) => {
+const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   const menuItems = [
@@ -215,6 +200,7 @@ const PatientDashboard = ({ user, handleLogout }) => {
     { id: 'prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottle /> },
     { id: 'registry', label: 'Medical Registry', icon: <FaFileMedicalAlt /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -276,10 +262,13 @@ const PatientDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-purple-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
-              <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
+            <header className='mb-12 pb-6 border-b border-purple-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
+                <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -355,6 +344,8 @@ const PatientDashboard = ({ user, handleLogout }) => {
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -370,7 +361,7 @@ const PatientDashboard = ({ user, handleLogout }) => {
 };
 
 // --- CHW Dashboard Component ---
-const ChwDashboard = ({ user, handleLogout }) => {
+const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   const menuItems = [
@@ -380,6 +371,7 @@ const ChwDashboard = ({ user, handleLogout }) => {
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
     { id: 'outreach', label: 'Outreach Events', icon: <FaClock /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -441,9 +433,12 @@ const ChwDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-orange-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+            <header className='mb-12 pb-6 border-b border-orange-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Community Work Stats Grid */}
@@ -528,6 +523,8 @@ const ChwDashboard = ({ user, handleLogout }) => {
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -1109,7 +1106,8 @@ const ReviewsSection = ({ user }) => {
   );
 };
 
-// --- Reusable Referrals Section Component ---
+
+// --- Reusable Referrals Section Component ---
 const ReferralsSection = ({ user }) => {
   const [referrals, setReferrals] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1565,12 +1563,14 @@ const ReferralsSection = ({ user }) => {
                         )}
                         {Number(ref.referrer_id) === Number(user.id) && (
                           <>
-                            <button 
-                              onClick={() => handleStartEdit(ref)}
-                              className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
-                            >
-                              Edit
-                            </button>
+                            {ref.status !== 'fulfilled' && (
+                              <button 
+                                onClick={() => handleStartEdit(ref)}
+                                className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
+                              >
+                                Edit
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleDeleteReferral(ref.id)}
                               className='cursor-pointer flex-1 md:flex-initial bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
@@ -1977,7 +1977,7 @@ const ReferralsSection = ({ user }) => {
 };
 
 // --- Admin Dashboard Component ---
-const AdminDashboard = ({ user, handleLogout }) => {
+const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [users, setUsers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -2011,9 +2011,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
   // Reviews state removed to use database reviews in ReviewsSection
 
-  const [chatMessages, setChatMessages] = React.useState([
-    { id: 1, sender: "System", recipient: "All", message: "Welcome to the UbuntuHealth Admin Chat Room. Select a target group or contact to start.", timestamp: "16:00" }
-  ]);
+
 
   // --- Form Input States ---
   const [newPatient, setNewPatient] = React.useState({
@@ -2044,8 +2042,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
   const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
   // newReview state removed to use database reviews in ReviewsSection
   
-  const [chatTarget, setChatTarget] = React.useState('patients'); // 'patients', 'chws', 'staff', or specific name
-  const [chatInput, setChatInput] = React.useState('');
+
 
   const [selectedChwId, setSelectedChwId] = React.useState(1);
 
@@ -2193,19 +2190,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
   // handleCreateReview removed to use database reviews in ReviewsSection
 
-  const handleSendChatMessage = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    const newMessage = {
-      id: chatMessages.length + 1,
-      sender: "Admin (" + user.fullname + ")",
-      recipient: chatTarget,
-      message: chatInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setChatMessages([...chatMessages, newMessage]);
-    setChatInput('');
-  };
+
 
   const handleStaffAvailability = (id, newAvailability) => {
     const updatedStaff = staff.map(s => {
@@ -2288,9 +2273,12 @@ const AdminDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' && (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-violet-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Admin {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization || 'Cape Town Clinic'}</p>
+            <header className='mb-12 pb-6 border-b border-violet-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Admin {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization || 'Cape Town Clinic'}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Quick Stats Grid */}
@@ -2877,99 +2865,272 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
         {/* --- Chat Room Section --- */}
         {activeTab === 'chat' && (
-          <div className='max-w-6xl mx-auto bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row gap-6 h-[550px]'>
-            {/* Left selector */}
-            <div className='w-full md:w-64 bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col justify-between shrink-0'>
-              <div>
-                <h3 className='text-sm font-bold flex items-center gap-1.5 mb-4 text-violet-400 border-b border-white/5 pb-2'>
-                  <FaComments />
-                  Chat Targeting
-                </h3>
-                <div className='space-y-2.5'>
-                  <div>
-                    <label className='block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wider'>Send broadcast to:</label>
-                    <div className='flex flex-col gap-1.5'>
-                      {['patients', 'chws', 'staff'].map(target => (
-                        <button 
-                          key={target}
-                          onClick={() => setChatTarget(target)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold capitalize border transition-all duration-300 ${
-                            chatTarget === target ? 'bg-violet-500 text-black border-violet-500' : 'bg-white/5 text-gray-400 border-white/5 hover:border-violet-500/20'
-                          }`}
-                        >
-                          All {target}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className='h-px bg-white/5 my-3'></div>
-
-                  <div>
-                    <label className='block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wider'>Send private to:</label>
-                    <select 
-                      value={['patients', 'chws', 'staff'].includes(chatTarget) ? '' : chatTarget} 
-                      onChange={e => setChatTarget(e.target.value)} 
-                      className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
-                    >
-                      <option value="" disabled>Select Recipient</option>
-                      <optgroup label="Patients" className='bg-slate-900'>
-                        {patients.map(p => <option key={`pat-${p.id}`} value={p.fullname}>{p.fullname}</option>)}
-                      </optgroup>
-                      <optgroup label="CHWs" className='bg-slate-900'>
-                        {chws.map(c => <option key={`chw-${c.id}`} value={c.fullname}>{c.fullname}</option>)}
-                      </optgroup>
-                      <optgroup label="Staff" className='bg-slate-900'>
-                        {staff.map(s => <option key={`stf-${s.id}`} value={s.fullname}>{s.fullname}</option>)}
-                      </optgroup>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className='bg-white/5 border border-white/5 rounded-xl p-3 text-[10px] text-gray-500'>
-                Targeting: <span className='text-violet-400 font-bold capitalize'>{chatTarget}</span>
-              </div>
-            </div>
-
-            {/* Right Chat logs */}
-            <div className='flex-1 flex flex-col justify-between h-full bg-black/20 border border-white/5 rounded-xl p-4'>
-              <div className='flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar max-h-[420px]'>
-                {chatMessages.filter(m => m.recipient === 'All' || m.recipient === chatTarget || m.sender.includes(chatTarget)).map(msg => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex flex-col max-w-[80%] rounded-xl p-3 ${
-                      msg.sender.includes("Admin") 
-                        ? 'bg-violet-600/30 border border-violet-500/20 self-end ml-auto' 
-                        : 'bg-white/5 border border-white/5 self-start mr-auto'
-                    }`}
-                  >
-                    <div className='flex justify-between items-center gap-4 mb-1'>
-                      <span className='text-[10px] font-bold text-violet-300'>{msg.sender}</span>
-                      <span className='text-[9px] text-gray-500'>{msg.timestamp}</span>
-                    </div>
-                    <p className='text-xs text-gray-200 leading-relaxed'>{msg.message}</p>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={handleSendChatMessage} className='flex gap-2 mt-4 pt-3 border-t border-white/5'>
-                <input 
-                  type="text" 
-                  placeholder={`Send message to ${chatTarget}...`}
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  className='flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                <button type="submit" className='cursor-pointer bg-violet-500 hover:bg-violet-600 text-black p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center'>
-                  <FaPaperPlane size={14} />
-                </button>
-              </form>
-            </div>
-          </div>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         )}
       </main>
+    </div>
+  );
+};
+
+// --- Reusable Notification Panel ---
+const NotificationPanel = ({ notifications, socket }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkRead = (id) => {
+    if (socket) {
+      socket.emit('mark_notification_read', id);
+    }
+  };
+
+  return (
+    <div className='relative z-50'>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className='cursor-pointer relative bg-white/5 border border-white/10 hover:bg-white/10 p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center'
+      >
+        <FaBell size={16} className={unreadCount > 0 ? 'text-amber-400 animate-bounce' : 'text-gray-400'} />
+        {unreadCount > 0 && (
+          <span className='absolute -top-1 -right-1 bg-red-500 text-white font-extrabold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30'>
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className='absolute right-0 mt-3 w-80 bg-[#0c0f12] border border-white/10 rounded-2xl shadow-2xl p-4 text-left z-50 backdrop-blur-2xl'>
+          <div className='flex justify-between items-center pb-3 border-b border-white/5 mb-3'>
+            <h3 className='text-xs font-bold text-white'>Notifications</h3>
+            <span className='text-[9px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full font-semibold'>{unreadCount} unread</span>
+          </div>
+          <div className='space-y-3.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar'>
+            {notifications.map(notif => (
+              <div 
+                key={notif.id} 
+                className={`p-3 rounded-xl border transition-all duration-300 ${
+                  notif.read 
+                    ? 'bg-white/5 border-white/5 opacity-60' 
+                    : 'bg-white/10 border-white/10 hover:border-violet-500/20'
+                }`}
+              >
+                <div className='flex justify-between items-start gap-2 mb-1'>
+                  <h4 className={`text-xs font-extrabold ${notif.read ? 'text-gray-400' : 'text-white'}`}>{notif.title}</h4>
+                  {!notif.read && (
+                    <button 
+                      onClick={() => handleMarkRead(notif.id)}
+                      className='cursor-pointer bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-black p-1 rounded transition-all duration-200'
+                      title="Mark as read"
+                    >
+                      <FaCheck size={8} />
+                    </button>
+                  )}
+                </div>
+                <p className='text-[10.5px] text-gray-400 leading-normal mb-1.5'>{notif.message}</p>
+                <span className='text-[8px] text-gray-500 font-medium block'>{notif.timestamp}</span>
+              </div>
+            ))}
+            {notifications.length === 0 && (
+              <div className='text-center py-8 text-gray-500 text-xs'>
+                No notifications received.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Reusable Chat Room ---
+const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
+  const [selectedContact, setSelectedContact] = React.useState(null);
+  const [messageInput, setMessageInput] = React.useState('');
+  const chatContainerRef = React.useRef(null);
+
+  const role = user.role?.toLowerCase();
+  const myChatId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
+
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return {
+          primaryBg: 'bg-violet-500',
+          primaryHover: 'hover:bg-violet-600',
+          bubbleBg: 'bg-violet-600',
+          text: 'text-violet-400',
+          focusBorder: 'focus:border-violet-500'
+        };
+      case 'staff':
+        return {
+          primaryBg: 'bg-emerald-500',
+          primaryHover: 'hover:bg-emerald-600',
+          bubbleBg: 'bg-emerald-600',
+          text: 'text-emerald-400',
+          focusBorder: 'focus:border-emerald-500'
+        };
+      case 'chw':
+        return {
+          primaryBg: 'bg-orange-500',
+          primaryHover: 'hover:bg-orange-600',
+          bubbleBg: 'bg-orange-600',
+          text: 'text-orange-400',
+          focusBorder: 'focus:border-orange-500'
+        };
+      case 'patient':
+      default:
+        return {
+          primaryBg: 'bg-purple-500',
+          primaryHover: 'hover:bg-purple-600',
+          bubbleBg: 'bg-purple-600',
+          text: 'text-purple-400',
+          focusBorder: 'focus:border-purple-500'
+        };
+    }
+  };
+
+  const colors = getRoleColors(user.role);
+
+  React.useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages, selectedContact]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !selectedContact || !socket) return;
+
+    socket.emit('send_message', {
+      sender: myChatId,
+      senderName: user.fullname,
+      recipient: selectedContact.chat_id,
+      message: messageInput.trim()
+    });
+
+    setMessageInput('');
+  };
+
+  // Filter messages for current conversation (including direct messages and group announcements)
+  const activeMessages = chatMessages.filter(m => {
+    // 1. Direct messages
+    if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+    if (m.sender === selectedContact?.chat_id && m.recipient === myChatId) return true;
+
+    // 2. Admin to Group announcements (visible in conversation log with the sending admin)
+    if (selectedContact?.role === 'admin' && m.sender === selectedContact?.chat_id) {
+      const org = user.organization?.toLowerCase().trim();
+      if (org) {
+        if (m.recipient === `all_patients_${org}` && role === 'patient') return true;
+        if (m.recipient === `all_staff_${org}` && role === 'staff') return true;
+      }
+    }
+
+    // 3. For admin viewing their own sent group messages in the group virtual chat
+    if (role === 'admin' && selectedContact?.role === 'group') {
+      if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+    }
+
+    return false;
+  });
+
+  return (
+    <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
+      {/* Contact list side */}
+      <div className='w-1/3 border-r border-white/10 flex flex-col bg-black/20'>
+        <div className='p-4 border-b border-white/10'>
+          <h2 className='text-sm font-bold flex items-center gap-2'>
+            <FaComments className={colors.text} />
+            Conversations
+          </h2>
+        </div>
+        <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
+          {contacts.map(contact => (
+            <button
+              key={contact.chat_id}
+              onClick={() => setSelectedContact(contact)}
+              className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
+                selectedContact?.chat_id === contact.chat_id
+                  ? `${colors.primaryBg} text-black font-semibold`
+                  : 'hover:bg-white/5 text-gray-300'
+              }`}
+            >
+              <span className='text-xs font-bold'>{contact.fullname}</span>
+              <span className={`text-[10px] uppercase tracking-wider ${
+                selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
+              }`}>
+                {contact.role} - {contact.organization}
+              </span>
+            </button>
+          ))}
+          {contacts.length === 0 && (
+            <div className='text-center py-8 text-gray-500 text-xs'>
+              No contacts found.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Message window side */}
+      <div className='flex-1 flex flex-col bg-black/40'>
+        {selectedContact ? (
+          <>
+            {/* Header */}
+            <div className='p-4 border-b border-white/10 bg-white/5 flex items-center justify-between'>
+              <div>
+                <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
+                <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
+              </div>
+            </div>
+
+            {/* Chat list */}
+            <div ref={chatContainerRef} className='flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3'>
+              {activeMessages.map(msg => {
+                const isMe = msg.sender === myChatId;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-xs ${
+                      isMe 
+                        ? `${colors.bubbleBg} text-white rounded-tr-none` 
+                        : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
+                    }`}>
+                      <p>{msg.message}</p>
+                      <span className='block text-[8px] text-right mt-1 opacity-60'>{msg.timestamp}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {activeMessages.length === 0 && (
+                <div className='text-center py-20 text-gray-500 text-xs'>
+                  No messages yet. Send a message to start the conversation!
+                </div>
+              )}
+            </div>
+
+            {/* Chat form */}
+            <form onSubmit={handleSendMessage} className='p-4 border-t border-white/10 bg-white/5 flex gap-2'>
+              <input
+                type='text'
+                placeholder={`Type a message to ${selectedContact.fullname}...`}
+                value={messageInput}
+                onChange={e => setMessageInput(e.target.value)}
+                className={`flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none ${colors.focusBorder} text-xs`}
+                required
+              />
+              <button
+                type='submit'
+                className={`${colors.primaryBg} ${colors.primaryHover} text-black p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center cursor-pointer`}
+              >
+                <FaPaperPlane size={14} />
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className='flex-1 flex flex-col items-center justify-center text-gray-500 p-8'>
+            <FaComments size={40} className='mb-4 text-gray-600' />
+            <p className='text-sm'>Select a contact from the left panel to start chatting.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -2977,6 +3138,62 @@ const AdminDashboard = ({ user, handleLogout }) => {
 // --- Main Dashboard Dispatcher ---
 const Dashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
+  const [socket, setSocket] = React.useState(null);
+  const [notifications, setNotifications] = React.useState([]);
+  const [chatMessages, setChatMessages] = React.useState([]);
+  const [contacts, setContacts] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin;
+    const socketInstance = io(socketUrl, {
+      withCredentials: true
+    });
+
+    setSocket(socketInstance);
+
+    const role = user.role?.toLowerCase();
+    const userId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
+
+    socketInstance.emit('register', userId);
+
+    socketInstance.on('chat_history', (msgs) => {
+      setChatMessages(msgs);
+    });
+
+    socketInstance.on('notifications_history', (notifs) => {
+      setNotifications(notifs);
+    });
+
+    socketInstance.on('receive_message', (msg) => {
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    });
+
+    socketInstance.on('receive_notification', (notif) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notif.id)) return prev;
+        return [notif, ...prev];
+      });
+    });
+
+    const fetchContacts = async () => {
+      try {
+        const res = await axios.get('/api/auth/contacts');
+        setContacts(res.data.contacts || []);
+      } catch (err) {
+        console.error("Failed to fetch contacts:", err);
+      }
+    };
+    fetchContacts();
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -3007,15 +3224,24 @@ const Dashboard = ({ user, setUser }) => {
 
   const role = user.role?.toLowerCase();
 
+  const commonProps = {
+    user,
+    handleLogout,
+    socket,
+    notifications,
+    chatMessages,
+    contacts
+  };
+
   if (role === 'admin') {
-    return <AdminDashboard user={user} handleLogout={handleLogout} />;
+    return <AdminDashboard {...commonProps} />;
   } else if (role === 'staff') {
-    return <StaffDashboard user={user} handleLogout={handleLogout} />;
+    return <StaffDashboard {...commonProps} />;
   } else if (role === 'chw') {
-    return <ChwDashboard user={user} handleLogout={handleLogout} />;
+    return <ChwDashboard {...commonProps} />;
   } else {
     // Default to Patient Dashboard if role is 'patient' or unspecified
-    return <PatientDashboard user={user} handleLogout={handleLogout} />;
+    return <PatientDashboard {...commonProps} />;
   }
 };
 

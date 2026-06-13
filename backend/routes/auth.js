@@ -166,4 +166,118 @@ router.get('/users', protect, async (req, res) => {
     }
 });
 
+// Get contact list for chat (available to any authenticated user)
+router.get('/contacts', protect, async (req, res) => {
+    try {
+        const staffAdminResult = await pool.query(
+            "SELECT id, fullname, role, organization FROM users.user_profiles ORDER BY fullname ASC"
+        );
+        const patientResult = await pool.query(`
+            SELECT p.id, p.fullname, 'patient' AS role, 
+                   COALESCE(
+                       (SELECT organization FROM users.user_profiles WHERE id = p.registra_id),
+                       'Patient'
+                   ) AS organization
+            FROM users.patients p 
+            ORDER BY p.fullname ASC
+        `);
+        const chwResult = await pool.query(`
+            SELECT c.id, c.fullname, 'chw' AS role, 
+                   COALESCE(
+                       (SELECT organization FROM users.user_profiles WHERE id = c.registra_id),
+                       'Community Health Worker'
+                   ) AS organization
+            FROM users.community_health_workers c 
+            ORDER BY c.fullname ASC
+        `);
+
+        // Map them to include chat_id
+        const staffAdminContacts = staffAdminResult.rows.map(u => ({
+            id: u.id,
+            fullname: u.fullname,
+            role: u.role,
+            organization: u.organization,
+            chat_id: `user_${u.id}`
+        }));
+
+        const patientContacts = patientResult.rows.map(p => ({
+            id: p.id,
+            fullname: p.fullname,
+            role: 'patient',
+            organization: p.organization,
+            chat_id: `patient_${p.id}`
+        }));
+
+        const chwContacts = chwResult.rows.map(c => ({
+            id: c.id,
+            fullname: c.fullname,
+            role: 'chw',
+            organization: c.organization,
+            chat_id: `chw_${c.id}`
+        }));
+
+        // Combine contacts
+        const allContacts = [...staffAdminContacts, ...patientContacts, ...chwContacts];
+
+        // Filter out the requesting user themselves
+        const requesterChatId = `${req.user.role === 'admin' || req.user.role === 'staff' ? 'user' : req.user.role}_${req.user.id}`;
+        let filteredContacts = allContacts.filter(c => c.chat_id !== requesterChatId);
+
+        // Enforce organizational isolation for non-admins
+        if (req.user.role !== 'admin') {
+            let requesterOrg = req.user.organization;
+            if (!requesterOrg) {
+                if (req.user.role === 'patient') {
+                    const orgRes = await pool.query(
+                        "SELECT organization FROM users.user_profiles WHERE id = (SELECT registra_id FROM users.patients WHERE id = $1)",
+                        [req.user.id]
+                    );
+                    if (orgRes.rows.length > 0) requesterOrg = orgRes.rows[0].organization;
+                } else if (req.user.role === 'chw') {
+                    const orgRes = await pool.query(
+                        "SELECT organization FROM users.user_profiles WHERE id = (SELECT registra_id FROM users.community_health_workers WHERE id = $1)",
+                        [req.user.id]
+                    );
+                    if (orgRes.rows.length > 0) requesterOrg = orgRes.rows[0].organization;
+                }
+            }
+
+            if (requesterOrg) {
+                const normalizedRequesterOrg = requesterOrg.toLowerCase().trim();
+                filteredContacts = filteredContacts.filter(c => 
+                    c.organization && c.organization.toLowerCase().trim() === normalizedRequesterOrg
+                );
+            } else {
+                filteredContacts = [];
+            }
+        }
+
+        // For the admin, inject group options at the top of their contact list
+        if (req.user.role === 'admin' && req.user.organization) {
+            const org = req.user.organization;
+            filteredContacts.unshift(
+                {
+                    id: `all_patients_${org.toLowerCase().trim()}`,
+                    fullname: `📢 All Patients (${org})`,
+                    role: 'group',
+                    organization: org,
+                    chat_id: `all_patients_${org.toLowerCase().trim()}`
+                },
+                {
+                    id: `all_staff_${org.toLowerCase().trim()}`,
+                    fullname: `📢 All Staff (${org})`,
+                    role: 'group',
+                    organization: org,
+                    chat_id: `all_staff_${org.toLowerCase().trim()}`
+                }
+            );
+        }
+
+        return res.json({ contacts: filteredContacts });
+    } catch (error) {
+        console.error('Error fetching contacts:', error);
+        return res.status(500).json({ message: 'Server error fetching contacts' });
+    }
+});
+
 export default router;   //Exports the router object so that it can be imported and used in the main server file to handle authentication-related routes.

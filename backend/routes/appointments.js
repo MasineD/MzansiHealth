@@ -150,7 +150,32 @@ router.post('/', protect, async (req, res) => {
             [createdId]
         );
 
-        return res.status(201).json({ appointment: completeResult.rows[0] });
+        const appointmentData = completeResult.rows[0];
+
+        // Trigger notifications
+        const createNotification = req.app.get('createNotification');
+        if (createNotification) {
+            const visitorChatId = `${req.user.role === 'admin' || req.user.role === 'staff' ? 'user' : req.user.role}_${req.user.id}`;
+            const formattedDate = new Date(date_time).toLocaleString();
+            
+            // Notify the patient/visitor
+            createNotification(
+                visitorChatId,
+                'Appointment Scheduled',
+                `A new appointment at "${finalOrganization.trim()}" has been scheduled for you on ${formattedDate}. Reason: "${reason.trim()}".`
+            );
+
+            // Notify the caregiver if assigned
+            if (care_giver) {
+                createNotification(
+                    `user_${care_giver}`,
+                    'New Appointment Assigned',
+                    `You have been assigned as the caregiver for ${appointmentData.visitor_name}'s appointment on ${formattedDate}.`
+                );
+            }
+        }
+
+        return res.status(201).json({ appointment: appointmentData });
     } catch (error) {
         console.error('Error creating appointment:', error);
         return res.status(500).json({ message: 'Server error creating appointment' });
