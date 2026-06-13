@@ -46,10 +46,8 @@ const Home = ({ setUser }) => {
   };
 
   useEffect(() => {
-    if (registerForm.role === 'staff') {
-      fetchOrganizations();
-    }
-  }, [registerForm.role]);
+    fetchOrganizations();
+  }, []);
 
   // Contact Form States
   const [contactEmail, setContactEmail] = useState('');
@@ -174,25 +172,38 @@ const Home = ({ setUser }) => {
       setTimeout(() => setContactStatus(null), 6000);
     }
   };
-  // TODO: Replace this with organizations from the database
-  const hospitals = [
-    'Tembisa Hospital',
-    'George Mokhali Hospital',
-    'MediClinic',
-    'Helen Joseph Hospital',
-    'Chris Hani Baragwanath',
-    'Charlotte Maxeke',
-    'Steve Biko Academic',
-    'Tygerberg Hospital'
-  ];
+  const displayedHospitals = organizations.length > 0 ? organizations : ['Mitchells Plain Clinic', 'Cape Town Clinic'];
 
-  const reviews = [
+  const fallbackReviews = [
     { stars: 5, text: "UbuntuHealth made it incredibly easy to consult a doctor. I received my prescription in minutes!", name: "Lindiwe Dube", profession: "Teacher" },
     { stars: 4, text: "As a Community Health Worker, the referral system has streamlined our home visits tremendously.", name: "Sibusiso Zulu", profession: "CHW Agent" },
     { stars: 5, text: "The digital patient registry keeps all my records secure and accessible wherever I go.", name: "Dr. Alan Mercer", profession: "Clinician" },
     { stars: 5, text: "Highly responsive interface. Fast support and great medical consultations locally.", name: "Naledi Molefe", profession: "Software Engineer" },
     { stars: 4, text: "Connecting clinics and hospitals under one platform is a game changer for South African health.", name: "Thabo Mofokeng", profession: "Clinic Coordinator" }
   ];
+
+  const [dbReviews, setDbReviews] = useState([]);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const res = await axios.get('/api/reviews');
+        setDbReviews(res.data.reviews || []);
+      } catch (err) {
+        console.error("Failed to fetch reviews:", err);
+      }
+    };
+    fetchReviews();
+  }, []);
+
+  const displayedReviews = dbReviews.length > 0 
+    ? dbReviews.map(r => ({
+        stars: r.rating,
+        text: r.comment,
+        organization: r.reviewer_org,
+        role: r.reviewer_role
+      }))
+    : fallbackReviews;
 
   return (
     <div className='bg-[#090C0E] text-white min-h-screen font-sans overflow-x-hidden selection:bg-green-500 selection:text-black'>
@@ -276,16 +287,16 @@ const Home = ({ setUser }) => {
             <div className='space-y-4 pt-2'>
               <h4 className='text-xs font-bold text-gray-500 tracking-widest uppercase'>Trusted By:</h4>
               <div className='relative w-full overflow-hidden mask-gradient py-2'>
-                <div className='animate-scroll gap-4 flex'>
+                <div className={`gap-4 flex ${displayedHospitals.length <= 3 ? 'justify-start' : 'animate-scroll'}`}>
                   {/* First iteration */}
-                  {hospitals.map((hosp, idx) => (
+                  {displayedHospitals.map((hosp, idx) => (
                     <div key={idx} className='bg-white/5 border border-white/10 hover:border-green-500/30 rounded-xl px-5 py-3 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors duration-300'>
                       <FaHospital className='text-green-500 text-xs' />
                       <span>{hosp}</span>
                     </div>
                   ))}
                   {/* Duplicated for smooth loop */}
-                  {hospitals.map((hosp, idx) => (
+                  {displayedHospitals.length > 3 && displayedHospitals.map((hosp, idx) => (
                     <div key={`dup-${idx}`} className='bg-white/5 border border-white/10 hover:border-green-500/30 rounded-xl px-5 py-3 text-sm font-semibold flex items-center gap-2 whitespace-nowrap transition-colors duration-300'>
                       <FaHospital className='text-green-500 text-xs' />
                       <span>{hosp}</span>
@@ -650,9 +661,9 @@ const Home = ({ setUser }) => {
 
           {/* Reviews Scrolling Carousel */}
           <div className='relative w-full overflow-hidden mask-gradient py-4'>
-            <div className='animate-scroll gap-6 flex'>
+            <div className={`gap-6 flex ${displayedReviews.length <= 3 ? 'justify-center flex-wrap' : 'animate-scroll'}`}>
               {/* First loop iteration */}
-              {reviews.map((rev, idx) => (
+              {displayedReviews.map((rev, idx) => (
                 <div key={idx} className='bg-[#0D1115] border border-white/10 hover:border-green-500/20 rounded-3xl p-6 w-80 flex-shrink-0 flex flex-col justify-between transition-colors duration-300'>
                   <div>
                     {/* Stars Block */}
@@ -665,16 +676,16 @@ const Home = ({ setUser }) => {
                         />
                       ))}
                     </div>
-                    <p className='text-gray-300 text-sm leading-relaxed mb-6 italic'>"{rev.text}"</p>
+                    <p className='text-gray-300 text-sm leading-relaxed mb-6 italic'>"{rev.text || rev.comment}"</p>
                   </div>
                   <div>
-                    <h5 className='font-bold text-white text-sm'>{rev.name}</h5>
-                    <p className='text-xs text-green-500 font-semibold mt-0.5'>{rev.profession}</p>
+                    <h5 className='font-bold text-white text-sm'>{rev.organization || rev.name || 'UbuntuHealth'}</h5>
+                    <p className='text-xs text-green-500 font-semibold mt-0.5'>{rev.role || rev.profession}</p>
                   </div>
                 </div>
               ))}
-              {/* Duplicated loop iteration */}
-              {reviews.map((rev, idx) => (
+              {/* Duplicated loop iteration (only for scrolling ticker with 4+ items) */}
+              {displayedReviews.length > 3 && displayedReviews.map((rev, idx) => (
                 <div key={`dup-${idx}`} className='bg-[#0D1115] border border-white/10 hover:border-green-500/20 rounded-3xl p-6 w-80 flex-shrink-0 flex flex-col justify-between transition-colors duration-300'>
                   <div>
                     {/* Stars Block */}
@@ -687,11 +698,11 @@ const Home = ({ setUser }) => {
                         />
                       ))}
                     </div>
-                    <p className='text-gray-300 text-sm leading-relaxed mb-6 italic'>"{rev.text}"</p>
+                    <p className='text-gray-300 text-sm leading-relaxed mb-6 italic'>"{rev.text || rev.comment}"</p>
                   </div>
                   <div>
-                    <h5 className='font-bold text-white text-sm'>{rev.name}</h5>
-                    <p className='text-xs text-green-500 font-semibold mt-0.5'>{rev.profession}</p>
+                    <h5 className='font-bold text-white text-sm'>{rev.organization || rev.name || 'UbuntuHealth'}</h5>
+                    <p className='text-xs text-green-500 font-semibold mt-0.5'>{rev.role || rev.profession}</p>
                   </div>
                 </div>
               ))}
