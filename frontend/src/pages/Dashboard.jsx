@@ -19,8 +19,8 @@ import {
   FaTasks
 } from 'react-icons/fa';
 
-// --- Clinician Dashboard Component ---
-const ClinicianDashboard = ({ user, handleLogout }) => {
+// --- Staff Dashboard Component ---
+const StaffDashboard = ({ user, handleLogout }) => {
   return (
     <div className='min-h-screen bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white p-6 md:p-12 relative overflow-hidden'>
       {/* Decorative background glow */}
@@ -344,6 +344,168 @@ const ChwDashboard = ({ user, handleLogout }) => {
     </div>
   );
 };
+// --- Admin Dashboard Component ---
+const AdminDashboard = ({ user, handleLogout }) => {
+  const [users, setUsers] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [organizationsCount, setOrganizationsCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        setLoading(true);
+        const [usersRes, orgsRes] = await Promise.all([
+          axios.get('/api/auth/users'),
+          axios.get('/api/auth/organizations')
+        ]);
+        setUsers(usersRes.data.users || []);
+        setOrganizationsCount(orgsRes.data.organizations?.length || 0);
+      } catch (err) {
+        console.error("Failed to fetch admin dashboard data:", err);
+        setError(err.response?.data?.message || "Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdminData();
+  }, []);
+
+  const totalUsers = users.length;
+  const staffCount = users.filter(u => u.role?.toLowerCase() === 'staff').length;
+  const adminCount = users.filter(u => u.role?.toLowerCase() === 'admin').length;
+  const patientCount = users.filter(u => u.role?.toLowerCase() === 'patient' || !u.role).length;
+
+  return (
+    <div className='min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-violet-950 text-white p-6 md:p-12 relative overflow-hidden'>
+      {/* Decorative background glow */}
+      <div className='absolute -top-40 -right-40 w-96 h-96 bg-violet-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse'></div>
+      <div className='absolute -bottom-40 -left-40 w-96 h-96 bg-fuchsia-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse delay-1000'></div>
+
+      <div className='max-w-6xl mx-auto relative z-10'>
+        {/* Header */}
+        <header className='flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4 pb-6 border-b border-violet-500/20'>
+          <div>
+            <div className='flex items-center gap-3 mb-2'>
+              <div className='bg-violet-500/20 text-violet-400 p-2.5 rounded-lg border border-violet-500/30'>
+                <FaTasks size={28} />
+              </div>
+              <span className='bg-violet-500/10 text-violet-300 border border-violet-500/30 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase'>
+                Admin Portal
+              </span>
+            </div>
+            <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Admin {user.fullname}</h1>
+            <p className='text-gray-400 text-sm mt-1'>Logged in from: {user.organization || 'Central Administration'}</p>
+          </div>
+          <button 
+            onClick={handleLogout} 
+            className='cursor-pointer flex items-center gap-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 px-5 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm hover:scale-[1.02] active:scale-95'
+          >
+            <FaSignOutAlt />
+            Logout
+          </button>
+        </header>
+
+        {/* Quick Stats Grid */}
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
+          {[
+            { label: 'Total Registered', value: loading ? '...' : totalUsers, icon: <FaUsers className='text-violet-400' />, desc: `${patientCount} Patients` },
+            { label: 'Staff Registered', value: loading ? '...' : staffCount, icon: <FaUserMd className='text-fuchsia-400' />, desc: 'Outreach & clinical staff' },
+            { label: 'System Admins', value: loading ? '...' : adminCount, icon: <FaUser className='text-pink-400' />, desc: 'Administrative accounts' },
+            { label: 'Active Organizations', value: loading ? '...' : organizationsCount, icon: <FaClipboardList className='text-purple-400' />, desc: 'Registered medical centers' }
+          ].map((stat, idx) => (
+            <div key={idx} className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-violet-500/30 hover:scale-[1.02] transition-all duration-300'>
+              <div className='flex justify-between items-start mb-4'>
+                <span className='text-gray-400 text-sm font-medium'>{stat.label}</span>
+                <div className='bg-white/5 p-2 rounded-lg'>{stat.icon}</div>
+              </div>
+              <div className='text-3xl font-bold mb-1'>{stat.value}</div>
+              <span className='text-xs text-gray-500'>{stat.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Error State */}
+        {error && (
+          <div className='bg-red-500/10 border border-red-500/20 text-red-400 text-sm py-4 px-6 rounded-2xl mb-12 text-center'>
+            {error}
+          </div>
+        )}
+
+        {/* Dashboard Sections */}
+        <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+          {/* Main Area: User Directory */}
+          <div className='lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+            <div className='flex justify-between items-center mb-6'>
+              <h2 className='text-xl font-bold flex items-center gap-2'>
+                <FaUsers className='text-violet-400' />
+                User Profiles Directory
+              </h2>
+            </div>
+            
+            {loading ? (
+              <div className='text-center py-12 text-gray-500 text-sm'>
+                Fetching registered users...
+              </div>
+            ) : users.length === 0 ? (
+              <div className='text-center py-12 text-gray-500 text-sm'>
+                No user accounts registered.
+              </div>
+            ) : (
+              <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
+                {users.map((profile, idx) => (
+                  <div key={profile.id || idx} className='flex flex-col sm:flex-row justify-between sm:items-center bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 gap-4 hover:bg-white/10 transition-all duration-300'>
+                    <div>
+                      <div className='flex items-center gap-2.5 mb-1'>
+                        <h3 className='font-semibold'>{profile.fullname}</h3>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                          profile.role === 'admin' ? 'bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30' :
+                          profile.role === 'staff' ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' :
+                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        }`}>
+                          {profile.role || 'patient'}
+                        </span>
+                      </div>
+                      <p className='text-xs text-gray-400'>ID: {profile.identity?.trim()}</p>
+                      {profile.organization && (
+                        <p className='text-xs text-violet-300/80 font-medium mt-1'>
+                          Org: {profile.organization}
+                        </p>
+                      )}
+                    </div>
+                    <div className='text-left sm:text-right border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0'>
+                      <p className='text-xs text-gray-400'>{profile.email || 'No email registered'}</p>
+                      <p className='text-xs text-gray-400 mt-0.5'>{profile.phone_number?.trim()}</p>
+                      <span className='text-[10px] text-gray-500 block mt-1.5'>
+                        Joined: {new Date(profile.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar Area: Admin Tools */}
+          <div className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+            <h2 className='text-xl font-bold mb-4 flex items-center gap-2'>
+              <FaMedkit className='text-fuchsia-400' />
+              Admin Controls
+            </h2>
+            <div className='space-y-3'>
+              {['Manage System Roles', 'Generate System Audit Log', 'Security Compliance Log', 'System Environment Diagnostics'].map((tool, idx) => (
+                <button key={idx} className='cursor-pointer w-full text-left bg-white/5 hover:bg-violet-500/10 border border-white/10 hover:border-violet-500/20 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02]'>
+                  {tool}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- Main Dashboard Dispatcher ---
 const Dashboard = ({ user, setUser }) => {
@@ -354,7 +516,7 @@ const Dashboard = ({ user, setUser }) => {
       await axios.post('/api/auth/logout'); // Sending the logout request to the backend
       setUser(null); // Clear the user session state
       localStorage.removeItem('user'); // Clear local storage
-      navigate('/login'); // Redirect to login page
+      navigate('/'); // Redirect to home page
     } catch (err) {
       console.error("Failed to logout:", err);
     }
@@ -366,7 +528,7 @@ const Dashboard = ({ user, setUser }) => {
         <div className='text-center'>
           <p className='text-gray-400 mb-4'>Please log in to view the dashboard.</p>
           <button 
-            onClick={() => navigate('/login')} 
+            onClick={() => navigate('/')} 
             className='bg-blue-500 hover:bg-blue-600 px-6 py-2.5 rounded-xl font-semibold transition-all duration-300'
           >
             Go to Login
@@ -378,8 +540,10 @@ const Dashboard = ({ user, setUser }) => {
 
   const role = user.role?.toLowerCase();
 
-  if (role === 'clinician') {
-    return <ClinicianDashboard user={user} handleLogout={handleLogout} />;
+  if (role === 'admin') {
+    return <AdminDashboard user={user} handleLogout={handleLogout} />;
+  } else if (role === 'staff') {
+    return <StaffDashboard user={user} handleLogout={handleLogout} />;
   } else if (role === 'chw') {
     return <ChwDashboard user={user} handleLogout={handleLogout} />;
   } else {
