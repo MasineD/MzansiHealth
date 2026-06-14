@@ -9,6 +9,11 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
+const contacts = [
+    { name: 'Donald', phone: '+27714366053' },
+    { name: 'Sizwe', phone: '+27726977805' }
+];
+
 export async function sendSMS(to, body) {
     if (!accountSid || !authToken || !twilioPhone) {
         console.warn('Twilio credentials missing. SMS skipped.');
@@ -29,7 +34,7 @@ export async function sendSMS(to, body) {
     try {
         const client = twilio(accountSid, authToken);
         const message = await client.messages.create({
-            from: twilioPhone,
+            from: process.env.TWILIO_PHONE_NUMBER,
             to: formattedTo,
             body: body
         });

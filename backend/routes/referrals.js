@@ -263,6 +263,13 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(400).json({ message: 'Access denied. A fulfilled referral cannot be edited.' });
         }
 
+        // Guard: receiver cannot edit the referral
+        const isReceiver = (req.user.organization && referral.organization_to && req.user.organization.trim().toLowerCase() === referral.organization_to.trim().toLowerCase()) ||
+                           (req.user.fullname && referral.staff_to && req.user.fullname.trim().toLowerCase() === referral.staff_to.trim().toLowerCase());
+        if (isReceiver) {
+            return res.status(403).json({ message: 'Access denied. The receiver of a referral cannot edit or delete it.' });
+        }
+
         // Authorization checks: Only the creator of the referral can edit it
         const isCreator = Number(referral.referrer_id) === Number(req.user.id);
         if (!isCreator) {
@@ -308,6 +315,13 @@ router.delete('/:id', protect, async (req, res) => {
         }
 
         const referral = referralResult.rows[0];
+
+        // Guard: receiver cannot delete the referral
+        const isReceiver = (req.user.organization && referral.organization_to && req.user.organization.trim().toLowerCase() === referral.organization_to.trim().toLowerCase()) ||
+                           (req.user.fullname && referral.staff_to && req.user.fullname.trim().toLowerCase() === referral.staff_to.trim().toLowerCase());
+        if (isReceiver) {
+            return res.status(403).json({ message: 'Access denied. The receiver of a referral cannot edit or delete it.' });
+        }
 
         // Authorization checks: Only the creator of the referral can delete it
         const isCreator = Number(referral.referrer_id) === Number(req.user.id);

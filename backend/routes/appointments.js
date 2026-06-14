@@ -180,7 +180,7 @@ router.post('/', protect, async (req, res) => {
         // SMS notification dispatch logic (specific to patients)
         pool.query(
             "SELECT fullname, phone_number, nok_fullname, nok_phone FROM users.patients WHERE id = $1",
-            [req.user.id]
+            [appointmentData.visitor_id]
         ).then(patientQuery => {
             if (patientQuery.rows.length > 0) {
                 const patient = patientQuery.rows[0];
@@ -222,6 +222,11 @@ router.put('/:id/status', protect, async (req, res) => {
         }
 
         const appointment = appointmentResult.rows[0];
+
+        // Guard: an appointment cannot be cancelled when it has a status of fulfilled
+        if (status === 'cancelled' && appointment.status === 'fulfilled') {
+            return res.status(400).json({ message: 'An appointment cannot be cancelled when it has a status of fulfilled.' });
+        }
 
         // Authorization checks
         const isAdminOfOrg = req.user.role === 'admin' && req.user.organization?.toLowerCase() === appointment.organization?.toLowerCase();

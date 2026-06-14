@@ -12,6 +12,7 @@ import chwRoutes from './routes/chw.js';
 import appointmentRoutes from './routes/appointments.js';
 import reviewRoutes from './routes/reviews.js';
 import referralRoutes from './routes/referrals.js';
+import recordRoutes from './routes/records.js';
 import pool from './config/database.js';
 
 dotenv.config();
@@ -19,7 +20,7 @@ dotenv.config({ path: '../frontend/src/.env' });
 const app = express();
 const allowedOrigins = [
     process.env.CLIENT_URL,
-    'http://localhost:5173',
+    // 'http://localhost:5173',
     'http://localhost:5174'
 ].filter(Boolean);
 
@@ -36,6 +37,7 @@ app.use('/api/chw', chwRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/referrals', referralRoutes);
+app.use('/api/records', recordRoutes);
 
 // In-memory message and notification storage
 const globalMessages = [];
@@ -63,7 +65,7 @@ const createNotification = (userId, title, message) => {
 // Expose createNotification to express app
 app.set('createNotification', createNotification);
 
-const Port = process.env.PORT || 5000;
+const Port = process.env.PORT || 5001;
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
