@@ -15,6 +15,7 @@ import referralRoutes from './routes/referrals.js';
 import pool from './config/database.js';
 
 dotenv.config();
+dotenv.config({ path: '../frontend/src/.env' });
 const app = express();
 const allowedOrigins = [
     process.env.CLIENT_URL,

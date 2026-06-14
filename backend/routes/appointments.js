@@ -2,6 +2,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import protect from '../middleware/auth.js';
+import { sendSMS } from '../utils/sms.js';
 
 const router = express.Router();
 
@@ -154,9 +155,10 @@ router.post('/', protect, async (req, res) => {
 
         // Trigger notifications
         const createNotification = req.app.get('createNotification');
+        const formattedDate = new Date(date_time).toLocaleString();
+
         if (createNotification) {
             const visitorChatId = `${req.user.role === 'admin' || req.user.role === 'staff' ? 'user' : req.user.role}_${req.user.id}`;
-            const formattedDate = new Date(date_time).toLocaleString();
             
             // Notify the patient/visitor
             createNotification(
@@ -174,6 +176,28 @@ router.post('/', protect, async (req, res) => {
                 );
             }
         }
+
+        // SMS notification dispatch logic (specific to patients)
+        pool.query(
+            "SELECT fullname, phone_number, nok_fullname, nok_phone FROM users.patients WHERE id = $1",
+            [req.user.id]
+        ).then(patientQuery => {
+            if (patientQuery.rows.length > 0) {
+                const patient = patientQuery.rows[0];
+
+                // 1. Send SMS to Patient containing appointment key
+                const patientSmsBody = `Hello ${patient.fullname}, your appointment at "${finalOrganization.trim()}" is scheduled for ${formattedDate}. Your verification key is: ${appointment_key}.`;
+                sendSMS(patient.phone_number, patientSmsBody);
+
+                // 2. Send SMS to Next of Kin containing appointment details
+                if (patient.nok_phone) {
+                    const nokSmsBody = `Hello ${patient.nok_fullname}, this is to inform you that ${patient.fullname} has scheduled an appointment at "${finalOrganization.trim()}" on ${formattedDate}. Reason: "${reason.trim()}".`;
+                    sendSMS(patient.nok_phone, nokSmsBody);
+                }
+            }
+        }).catch(err => {
+            console.error("Error dispatching appointment SMS notifications:", err);
+        });
 
         return res.status(201).json({ appointment: appointmentData });
     } catch (error) {

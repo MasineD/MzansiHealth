@@ -2,6 +2,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import protect from '../middleware/auth.js';
+import { sendSMS } from '../utils/sms.js';
 
 const router = express.Router();
 
@@ -190,6 +191,29 @@ router.post('/', protect, async (req, res) => {
                 });
             }
         }
+
+        // SMS notification dispatch logic (specific to patients)
+        pool.query(
+            "SELECT fullname, phone_number, nok_fullname, nok_phone FROM users.patients WHERE id = $1",
+            [patient_id]
+        ).then(patientQuery => {
+            if (patientQuery.rows.length > 0) {
+                const patient = patientQuery.rows[0];
+                const destOrg = organization_to.trim();
+
+                // 1. Send SMS to Patient containing referral key
+                const patientSmsBody = `Hello ${patient.fullname}, a new referral has been logged for you to "${destOrg}" (${department_to.trim()}). Your verification key is: ${referral_key}.`;
+                sendSMS(patient.phone_number, patientSmsBody);
+
+                // 2. Send SMS to Next of Kin containing referral details
+                if (patient.nok_phone) {
+                    const nokSmsBody = `Hello ${patient.nok_fullname}, this is to inform you that a referral has been logged for ${patient.fullname} to "${destOrg}" (${department_to.trim()}) expected on ${new Date(arrival_date).toLocaleDateString()}.`;
+                    sendSMS(patient.nok_phone, nokSmsBody);
+                }
+            }
+        }).catch(err => {
+            console.error("Error dispatching referral SMS notifications:", err);
+        });
 
         // Return response without the key, as creator must not see the key
         return res.status(201).json({ referral: responseData });
