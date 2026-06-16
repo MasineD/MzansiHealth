@@ -16,6 +16,145 @@ const generateKey = () => {
     return key;
 };
 
+// Retrieve care givers (staff members) for a given organization (public endpoint)
+router.get('/public/caregivers', async (req, res) => {
+    try {
+        const { organization } = req.query;
+        if (!organization) {
+            return res.status(400).json({ message: 'Organization query parameter is required' });
+        }
+
+        const result = await pool.query(
+            `SELECT id, fullname FROM users.user_profiles 
+             WHERE LOWER(role) = 'staff' AND LOWER(organization) = LOWER($1)
+             ORDER BY fullname ASC`,
+            [organization.trim()]
+        );
+        return res.json({ caregivers: result.rows });
+    } catch (error) {
+        console.error('Error fetching public caregivers:', error);
+        return res.status(500).json({ message: 'Server error fetching caregivers' });
+    }
+});
+
+// Create a new public/guest appointment (unauthenticated)
+router.post('/public', async (req, res) => {
+    try {
+        const { visitor_name, organization, care_giver, reason, date_time, contact_email, contact_phone } = req.body;
+
+        if (!visitor_name || !visitor_name.trim()) {
+            return res.status(400).json({ message: 'Full name is required' });
+        }
+        if (!organization || !organization.trim()) {
+            return res.status(400).json({ message: 'Organization is required for scheduling an appointment' });
+        }
+        if (!reason || !reason.trim() || !date_time) {
+            return res.status(400).json({ message: 'Please provide appointment reason and date_time' });
+        }
+
+        const appointmentDateStr = date_time.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (appointmentDateStr < todayStr) {
+            return res.status(400).json({ message: 'Appointment date cannot be in the past' });
+        }
+        if ((!contact_email || !contact_email.trim()) && (!contact_phone || !contact_phone.trim())) {
+            return res.status(400).json({ message: 'Please provide either an email address or a phone number to receive the verification key' });
+        }
+
+        // Generate the 6-character key
+        const appointment_key = generateKey();
+
+        const result = await pool.query(
+            `INSERT INTO todos.appointments (visitor_id, visitor_name, organization, care_giver, reason, date_time, status, appointment_key, contact_email, contact_phone)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+             RETURNING *`,
+            [
+                0, // visitor_id = 0 for unregistered/guest appointments
+                visitor_name.trim(),
+                organization.trim(),
+                care_giver ? care_giver.toString().trim() : null,
+                reason.trim(),
+                date_time,
+                'pending',
+                appointment_key,
+                contact_email ? contact_email.trim() : null,
+                contact_phone ? contact_phone.trim() : null
+            ]
+        );
+
+        const createdId = result.rows[0].id;
+        const completeResult = await pool.query(
+            `SELECT a.*, 
+                    COALESCE(
+                        (SELECT fullname FROM users.user_profiles WHERE id = a.visitor_id),
+                        (SELECT fullname FROM users.patients WHERE id = a.visitor_id),
+                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id),
+                        a.visitor_name,
+                        'Unregistered User'
+                    ) AS visitor_name,
+                    (SELECT fullname FROM users.user_profiles WHERE id = CASE WHEN a.care_giver ~ '^[0-9]+$' THEN CAST(a.care_giver AS BIGINT) ELSE NULL END) AS care_giver_name
+             FROM todos.appointments a
+             WHERE a.id = $1`,
+            [createdId]
+        );
+
+        const appointmentData = completeResult.rows[0];
+
+        // Trigger notifications to caregiver and admins
+        const createNotification = req.app.get('createNotification');
+        const formattedDate = new Date(date_time).toLocaleString();
+
+        if (createNotification) {
+            // Notify the caregiver if assigned
+            if (care_giver) {
+                createNotification(
+                    `user_${care_giver}`,
+                    'New Appointment Assigned',
+                    `A new guest appointment has been scheduled and assigned to you on ${formattedDate}. Reason: "${reason.trim()}".`
+                );
+            }
+
+            // Notify all admins of the organization
+            try {
+                const adminsResult = await pool.query(
+                    `SELECT id FROM users.user_profiles WHERE LOWER(role) = 'admin' AND LOWER(organization) = LOWER($1)`,
+                    [organization.trim()]
+                );
+                adminsResult.rows.forEach(admin => {
+                    createNotification(
+                        `user_${admin.id}`,
+                        'New Guest Appointment Received',
+                        `A new guest appointment has been booked for your organization on ${formattedDate}. Reason: "${reason.trim()}".`
+                    );
+                });
+            } catch (err) {
+                console.error('Error notifying admins of guest appointment:', err);
+            }
+        }
+
+        // Send SMS containing appointment key if phone number provided
+        if (contact_phone && contact_phone.trim()) {
+            const smsBody = `Hello, your appointment at "${organization.trim()}" is scheduled for ${formattedDate}. Your verification key is: ${appointment_key}.`;
+            sendSMS(contact_phone, smsBody);
+        }
+
+        // Log email simulation if email address provided
+        if (contact_email && contact_email.trim()) {
+            console.log(`[Email Sent] To: ${contact_email.trim()} | Body: Hello, your appointment at "${organization.trim()}" is scheduled for ${formattedDate}. Your verification key is: ${appointment_key}.`);
+        }
+
+        return res.status(201).json({ appointment: appointmentData });
+    } catch (error) {
+        console.error('Error creating public appointment:', error);
+        return res.status(500).json({ message: 'Server error creating appointment' });
+    }
+});
+
 // Retrieve care givers (staff members) for a given organization
 router.get('/caregivers', protect, async (req, res) => {
     try {
@@ -48,7 +187,9 @@ router.get('/', protect, async (req, res) => {
             COALESCE(
                 (SELECT fullname FROM users.user_profiles WHERE id = a.visitor_id),
                 (SELECT fullname FROM users.patients WHERE id = a.visitor_id),
-                (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id)
+                (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id),
+                a.visitor_name,
+                'Unregistered User'
             ) AS visitor_name
         `;
 
@@ -112,6 +253,17 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ message: 'Please provide appointment reason and date_time' });
         }
 
+        const appointmentDateStr = date_time.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (appointmentDateStr < todayStr) {
+            return res.status(400).json({ message: 'Appointment date cannot be in the past' });
+        }
+
         // Use requested organization or fall back to user's registered organization
         const finalOrganization = organization || req.user.organization;
         if (!finalOrganization) {
@@ -143,7 +295,9 @@ router.post('/', protect, async (req, res) => {
                     COALESCE(
                         (SELECT fullname FROM users.user_profiles WHERE id = a.visitor_id),
                         (SELECT fullname FROM users.patients WHERE id = a.visitor_id),
-                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id)
+                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id),
+                        a.visitor_name,
+                        'Unregistered User'
                     ) AS visitor_name,
                     (SELECT fullname FROM users.user_profiles WHERE id = CASE WHEN a.care_giver ~ '^[0-9]+$' THEN CAST(a.care_giver AS BIGINT) ELSE NULL END) AS care_giver_name
              FROM todos.appointments a
@@ -253,12 +407,74 @@ router.put('/:id/status', protect, async (req, res) => {
             [status, id]
         );
 
+        const updatedApp = result.rows[0];
+        const isRegistered = Number(updatedApp.visitor_id) !== 0;
+        let recipientPhone = null;
+        let recipientName = 'User';
+        let visitorChatId = null;
+
+        if (isRegistered) {
+            // Check patients first
+            const patientRes = await pool.query("SELECT fullname, phone_number FROM users.patients WHERE id = $1", [updatedApp.visitor_id]);
+            if (patientRes.rows.length > 0) {
+                recipientPhone = patientRes.rows[0].phone_number;
+                recipientName = patientRes.rows[0].fullname;
+                visitorChatId = `patient_${updatedApp.visitor_id}`;
+            } else {
+                // Check user_profiles
+                const userRes = await pool.query("SELECT fullname, phone_number FROM users.user_profiles WHERE id = $1", [updatedApp.visitor_id]);
+                if (userRes.rows.length > 0) {
+                    recipientPhone = userRes.rows[0].phone_number;
+                    recipientName = userRes.rows[0].fullname;
+                    visitorChatId = `user_${updatedApp.visitor_id}`;
+                } else {
+                    // Check community_health_workers
+                    const chwRes = await pool.query("SELECT fullname, phone_number FROM users.community_health_workers WHERE id = $1", [updatedApp.visitor_id]);
+                    if (chwRes.rows.length > 0) {
+                        recipientPhone = chwRes.rows[0].phone_number;
+                        recipientName = chwRes.rows[0].fullname;
+                        visitorChatId = `chw_${updatedApp.visitor_id}`;
+                    }
+                }
+            }
+        } else {
+            recipientPhone = updatedApp.contact_phone;
+            recipientName = updatedApp.visitor_name || 'Guest';
+        }
+
+        // Trigger status update notifications & SMS
+        const formattedDate = new Date(updatedApp.date_time).toLocaleString();
+        const statusVerb = status === 'approved' ? 'approved' : 'cancelled/rejected';
+        
+        // 1. Send SMS if phone number is available
+        if (recipientPhone && recipientPhone.trim()) {
+            const smsBody = `Hello ${recipientName}, your appointment at "${updatedApp.organization.trim()}" on ${formattedDate} has been ${statusVerb}.`;
+            sendSMS(recipientPhone, smsBody);
+        }
+
+        // 2. Log/simulate email if guest only provided contact_email
+        if (!isRegistered && updatedApp.contact_email && updatedApp.contact_email.trim()) {
+            console.log(`[Email Sent] To: ${updatedApp.contact_email.trim()} | Body: Hello ${recipientName}, your appointment at "${updatedApp.organization.trim()}" on ${formattedDate} has been ${statusVerb}.`);
+        }
+
+        // 3. Send in-app notification if registered
+        const createNotification = req.app.get('createNotification');
+        if (isRegistered && visitorChatId && createNotification) {
+            createNotification(
+                visitorChatId,
+                `Appointment ${status === 'approved' ? 'Approved' : 'Cancelled'}`,
+                `Your appointment at "${updatedApp.organization.trim()}" on ${formattedDate} has been ${statusVerb}.`
+            );
+        }
+
         const completeResult = await pool.query(
             `SELECT a.*, 
                     COALESCE(
                         (SELECT fullname FROM users.user_profiles WHERE id = a.visitor_id),
                         (SELECT fullname FROM users.patients WHERE id = a.visitor_id),
-                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id)
+                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id),
+                        a.visitor_name,
+                        'Unregistered User'
                     ) AS visitor_name,
                     (SELECT fullname FROM users.user_profiles WHERE id = CASE WHEN a.care_giver ~ '^[0-9]+$' THEN CAST(a.care_giver AS BIGINT) ELSE NULL END) AS care_giver_name
              FROM todos.appointments a
@@ -322,7 +538,9 @@ router.put('/:id/fulfill', protect, async (req, res) => {
                     COALESCE(
                         (SELECT fullname FROM users.user_profiles WHERE id = a.visitor_id),
                         (SELECT fullname FROM users.patients WHERE id = a.visitor_id),
-                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id)
+                        (SELECT fullname FROM users.community_health_workers WHERE id = a.visitor_id),
+                        a.visitor_name,
+                        'Unregistered User'
                     ) AS visitor_name,
                     (SELECT fullname FROM users.user_profiles WHERE id = CASE WHEN a.care_giver ~ '^[0-9]+$' THEN CAST(a.care_giver AS BIGINT) ELSE NULL END) AS care_giver_name
              FROM todos.appointments a

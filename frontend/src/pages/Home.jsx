@@ -30,7 +30,10 @@ const Home = ({ setUser }) => {
     email: '',
     password: '',
     role: 'admin',
-    organization: ''
+    organization: '',
+    facility_code: '',
+    staff_number: '',
+    profession: ''
   });
   const [organizations, setOrganizations] = useState([]);
   const [registerError, setRegisterError] = useState(null);
@@ -54,6 +57,22 @@ const Home = ({ setUser }) => {
   const [contactSubject, setContactSubject] = useState('');
   const [contactMessage, setContactMessage] = useState('');
   const [contactStatus, setContactStatus] = useState(null);
+
+  // Guest Appointment Form States
+  const [appointmentForm, setAppointmentForm] = useState({
+    fullname: '',
+    organization: '',
+    care_giver: '',
+    reason: '',
+    date: '',
+    time: '',
+    contact_email: '',
+    contact_phone: ''
+  });
+  const [publicCaregivers, setPublicCaregivers] = useState([]);
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
+  const [appointmentError, setAppointmentError] = useState(null);
+  const [appointmentSuccess, setAppointmentSuccess] = useState(null);
 
   // Scroll handler for single page navigation
   const scrollToSection = (id) => {
@@ -89,7 +108,7 @@ const Home = ({ setUser }) => {
   // Registration submit handler
   const handleRegister = async (e) => {
     e.preventDefault();
-    const { fullname, identity, password, phone_number, role, organization } = registerForm;
+    const { fullname, identity, password, phone_number, role, organization, facility_code, staff_number, profession } = registerForm;
     if (!fullname || !identity || !password || !phone_number || !role) {
       setRegisterError('Please provide all required fields');
       return;
@@ -113,6 +132,24 @@ const Home = ({ setUser }) => {
       return;
     }
 
+    if (role === 'admin') {
+      if (!facility_code || !facility_code.trim()) {
+        setRegisterError('Facility code is required for Admins');
+        return;
+      }
+    }
+
+    if (role === 'staff') {
+      if (!staff_number || !staff_number.trim()) {
+        setRegisterError('Staff number is required for Staff members');
+        return;
+      }
+      if (!profession || !profession.trim()) {
+        setRegisterError('Profession is required for Staff members');
+        return;
+      }
+    }
+
     setRegisterLoading(true);
     setRegisterError(null);
     try {
@@ -124,6 +161,97 @@ const Home = ({ setUser }) => {
       setRegisterError(err.response?.data?.message || 'Failed to register');
     } finally {
       setRegisterLoading(false);
+    }
+  };
+
+  // Fetch public caregivers when organization changes
+  useEffect(() => {
+    const fetchPublicCaregivers = async () => {
+      if (!appointmentForm.organization) {
+        setPublicCaregivers([]);
+        return;
+      }
+      try {
+        const res = await axios.get(`/api/appointments/public/caregivers?organization=${encodeURIComponent(appointmentForm.organization)}`);
+        setPublicCaregivers(res.data.caregivers || []);
+      } catch (err) {
+        console.error('Failed to fetch public caregivers:', err);
+        setPublicCaregivers([]);
+      }
+    };
+    fetchPublicCaregivers();
+  }, [appointmentForm.organization]);
+
+  // Handle book appointment submission
+  const handleBookAppointment = async (e) => {
+    e.preventDefault();
+    setAppointmentError(null);
+    setAppointmentSuccess(null);
+
+    const { fullname, organization, care_giver, reason, date, time, contact_email, contact_phone } = appointmentForm;
+
+    if (!fullname || !fullname.trim()) {
+      setAppointmentError('Please enter your full name.');
+      return;
+    }
+    if (!organization) {
+      setAppointmentError('Please select an organization.');
+      return;
+    }
+    if (!reason || !reason.trim() || !date) {
+      setAppointmentError('Please fill in all required fields (Reason and Date).');
+      return;
+    }
+
+    const appointmentDateStr = date;
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    if (appointmentDateStr < todayStr) {
+      setAppointmentError('Appointment date cannot be in the past.');
+      return;
+    }
+
+    if (!contact_email.trim() && !contact_phone.trim()) {
+      setAppointmentError('Please provide either an email address or a phone number to receive your appointment key.');
+      return;
+    }
+
+    setAppointmentLoading(true);
+    try {
+      const date_time = time ? `${date}T${time}` : `${date}T00:00:00`;
+      const res = await axios.post('/api/appointments/public', {
+        visitor_name: fullname.trim(),
+        organization,
+        care_giver: care_giver || null,
+        reason,
+        date_time,
+        contact_email: contact_email.trim() || null,
+        contact_phone: contact_phone.trim() || null
+      });
+
+      setAppointmentSuccess(
+        `Appointment scheduled successfully! Your 6-character verification key has been sent to your provided contact info. Verification Key: ${res.data.appointment.appointment_key}`
+      );
+      // Reset form
+      setAppointmentForm({
+        fullname: '',
+        organization: '',
+        care_giver: '',
+        reason: '',
+        date: '',
+        time: '',
+        contact_email: '',
+        contact_phone: ''
+      });
+    } catch (err) {
+      console.error('Failed to book appointment:', err);
+      setAppointmentError(err.response?.data?.message || 'Failed to schedule appointment. Please try again.');
+    } finally {
+      setAppointmentLoading(false);
     }
   };
 
@@ -223,7 +351,7 @@ const Home = ({ setUser }) => {
 
           {/* Desktop Navigation Links */}
           <div className='hidden md:flex items-center gap-8 text-sm font-semibold tracking-wide'>
-            {['home', 'about', 'service', 'reviews', 'contact'].map((sect) => (
+            {['home', 'about', 'service', 'appointment', 'reviews', 'contact'].map((sect) => (
               <button 
                 key={sect}
                 onClick={() => scrollToSection(sect)}
@@ -231,7 +359,7 @@ const Home = ({ setUser }) => {
                   activeTab === sect ? 'text-green-500 border-b-2 border-green-500 pb-1' : 'text-gray-400'
                 }`}
               >
-                {sect === 'contact' ? 'Contact Us' : sect}
+                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Book Appointment' : sect}
               </button>
             ))}
           </div>
@@ -248,13 +376,13 @@ const Home = ({ setUser }) => {
         {/* Mobile Navigation Dropdown */}
         {mobileMenuOpen && (
           <div className='md:hidden absolute top-full left-0 right-0 bg-[#090C0E] border-b border-white/10 py-6 px-8 flex flex-col gap-5 shadow-2xl animate-fade-in'>
-            {['home', 'about', 'service', 'reviews', 'contact'].map((sect) => (
+            {['home', 'about', 'service', 'appointment', 'reviews', 'contact'].map((sect) => (
               <button 
                 key={sect}
                 onClick={() => scrollToSection(sect)}
                 className='text-left capitalize font-semibold text-lg text-gray-300 hover:text-green-500 transition-colors py-2'
               >
-                {sect === 'contact' ? 'Contact Us' : sect}
+                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Book Appointment' : sect}
               </button>
             ))}
           </div>
@@ -388,7 +516,7 @@ const Home = ({ setUser }) => {
                         name="role" 
                         value="admin"
                         checked={registerForm.role === 'admin'}
-                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '' })}
+                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '', facility_code: '', staff_number: '', profession: '' })}
                         className='accent-green-500 cursor-pointer h-3.5 w-3.5'
                       />
                       <span>Admin</span>
@@ -399,7 +527,7 @@ const Home = ({ setUser }) => {
                         name="role" 
                         value="staff"
                         checked={registerForm.role === 'staff'}
-                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '' })}
+                        onChange={(e) => setRegisterForm({ ...registerForm, role: e.target.value, organization: '', facility_code: '', staff_number: '', profession: '' })}
                         className='accent-green-500 cursor-pointer h-3.5 w-3.5'
                       />
                       <span>Staff</span>
@@ -494,6 +622,60 @@ const Home = ({ setUser }) => {
                         )}
                       </div>
                     </div>
+
+                    {/* Facility Code for Admin */}
+                    {registerForm.role === 'admin' && (
+                      <div>
+                        <div className='relative'>
+                          <FaUserTag className='absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500' />
+                          <input 
+                            type="text"
+                            placeholder="Facility Code *"
+                            value={registerForm.facility_code}
+                            onChange={(e) => setRegisterForm({ ...registerForm, facility_code: e.target.value })}
+                            className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Staff Number & Profession for Staff */}
+                    {registerForm.role === 'staff' && (
+                      <>
+                        <div>
+                          <div className='relative'>
+                            <FaIdCard className='absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500' />
+                            <input 
+                              type="text"
+                              placeholder="Staff Number *"
+                              value={registerForm.staff_number}
+                              onChange={(e) => setRegisterForm({ ...registerForm, staff_number: e.target.value })}
+                              className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className='relative'>
+                            <FaUserTag className='absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500' />
+                            <select 
+                              value={registerForm.profession}
+                              onChange={(e) => setRegisterForm({ ...registerForm, profession: e.target.value })}
+                              className='w-full pl-11 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm appearance-none cursor-pointer'
+                              required
+                            >
+                              <option value="" disabled className="bg-[#090C0E]">Select Profession *</option>
+                              <option value="Doctor" className="bg-[#090C0E]">Doctor</option>
+                              <option value="nurse" className="bg-[#090C0E]">nurse</option>
+                              <option value="social worker" className="bg-[#090C0E]">social worker</option>
+                              <option value="other" className="bg-[#090C0E]">other</option>
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                     <div>
                       <div className='relative'>
@@ -646,6 +828,181 @@ const Home = ({ setUser }) => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* 4.5. Book Appointment Section */}
+      <section id='appointment' className='py-24 px-6 md:px-12 bg-[#090C0E] border-b border-white/5 relative'>
+        {/* Glow effects */}
+        <div className='absolute top-20 right-10 w-80 h-80 bg-green-500/5 rounded-full blur-3xl opacity-20 pointer-events-none'></div>
+        <div className='absolute bottom-20 left-10 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl opacity-20 pointer-events-none'></div>
+
+        <div className='max-w-3xl mx-auto'>
+          {/* Section Header */}
+          <div className='text-center mb-16 space-y-2'>
+            <h2 className='text-3xl md:text-5xl font-black tracking-tight text-white'>Book Appointment</h2>
+            <p className='text-gray-400 text-sm md:text-base'>Schedule an appointment as an unregistered guest</p>
+            <div className='h-1 w-20 bg-green-500 mx-auto mt-2 rounded-full'></div>
+          </div>
+
+          {appointmentError && (
+            <div className='border rounded-xl p-4 mb-6 text-center text-sm font-semibold flex items-center justify-center gap-2 bg-red-500/10 border-red-500/20 text-red-400 animate-in fade-in duration-300'>
+              <FaTimes />
+              {appointmentError}
+            </div>
+          )}
+
+          {appointmentSuccess && (
+            <div className='border rounded-xl p-5 mb-6 text-left text-sm font-semibold bg-green-500/10 border-green-500/20 text-green-400 flex flex-col gap-2 animate-in fade-in duration-300'>
+              <div className='flex items-center gap-2 text-base font-bold'>
+                <FaCheckCircle className='text-green-500 shrink-0' />
+                Appointment Booked!
+              </div>
+              <p className='text-gray-300 font-normal leading-relaxed'>{appointmentSuccess}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleBookAppointment} className='space-y-6 bg-[#0D1115] border border-white/10 p-8 rounded-3xl shadow-xl'>
+            {/* Full Name */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Full Name *:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  value={appointmentForm.fullname}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, fullname: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Organization Dropdown */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Organization *:</label>
+              <div className='md:col-span-9'>
+                <select
+                  value={appointmentForm.organization}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, organization: e.target.value, care_giver: '' })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                  required
+                >
+                  <option value="" className='bg-[#0D1115] text-gray-400'>-- Select Organization --</option>
+                  {organizations.map((org, index) => (
+                    <option key={index} value={org} className='bg-[#0D1115] text-white'>{org}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Caregiver Dropdown (Optional) */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Staff Member:</label>
+              <div className='md:col-span-9'>
+                <select
+                  value={appointmentForm.care_giver}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, care_giver: e.target.value })}
+                  disabled={!appointmentForm.organization}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm disabled:opacity-40 disabled:cursor-not-allowed'
+                >
+                  <option value="" className='bg-[#0D1115] text-gray-400'>-- Select Staff Member (Optional) --</option>
+                  {publicCaregivers.map((cg) => (
+                    <option key={cg.id} value={cg.id} className='bg-[#0D1115] text-white'>{cg.fullname}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Reason *:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="text"
+                  placeholder="e.g. Regular medical checkup"
+                  value={appointmentForm.reason}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, reason: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Date */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Date *:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="date"
+                  value={appointmentForm.date}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, date: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Time */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Time:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="time"
+                  value={appointmentForm.time}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, time: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                />
+              </div>
+            </div>
+
+            {/* Email Contact */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Email Address:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="email"
+                  placeholder="name@example.com (To receive key)"
+                  value={appointmentForm.contact_email}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, contact_email: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                />
+              </div>
+            </div>
+
+            {/* Phone Contact */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <label className='md:col-span-3 text-xs font-bold text-gray-400 uppercase tracking-wider text-left md:text-right'>Phone Number:</label>
+              <div className='md:col-span-9'>
+                <input
+                  type="tel"
+                  placeholder="e.g. 0714366053 (To receive key)"
+                  value={appointmentForm.contact_phone}
+                  onChange={(e) => setAppointmentForm({ ...appointmentForm, contact_phone: e.target.value })}
+                  className='w-full px-4 py-3 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-300 text-sm'
+                />
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className='grid grid-cols-1 md:grid-cols-12 items-center gap-4'>
+              <div className='md:col-span-3'></div>
+              <div className='md:col-span-9 text-left'>
+                <button
+                  type="submit"
+                  disabled={appointmentLoading}
+                  className='cursor-pointer inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-black px-6 py-3 rounded-xl font-bold transition-all duration-300 shadow-lg shadow-green-500/20 hover:shadow-green-600/30 text-sm disabled:opacity-50'
+                >
+                  {appointmentLoading ? 'Booking...' : (
+                    <>
+                      <FaPaperPlane />
+                      <span>Book Appointment</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </section>
 
@@ -807,13 +1164,13 @@ const Home = ({ setUser }) => {
           <div className='md:col-span-3 space-y-3'>
             <h5 className='text-white text-xs font-bold uppercase tracking-wider'>Quick Links</h5>
             <div className='flex flex-col gap-2 text-xs'>
-              {['home', 'about', 'service', 'reviews', 'contact'].map((sect) => (
+              {['home', 'about', 'service', 'appointment', 'reviews', 'contact'].map((sect) => (
                 <button 
                   key={sect}
                   onClick={() => scrollToSection(sect)}
                   className='text-left hover:text-green-500 transition-colors capitalize'
                 >
-                  {sect === 'contact' ? 'Contact Us' : sect}
+                  {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Book Appointment' : sect}
                 </button>
               ))}
             </div>

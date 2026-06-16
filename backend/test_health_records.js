@@ -14,6 +14,7 @@ async function runTests() {
         await pool.query("DELETE FROM users.patients WHERE identity = '8888888888888'");
         await pool.query("DELETE FROM users.community_health_workers WHERE identity = '7777777777777'");
         await pool.query("DELETE FROM users.user_profiles WHERE identity = '1111111111111'");
+        await pool.query("DELETE FROM users.user_profiles WHERE identity = '2222222222222'");
         console.log("Cleanup done.");
 
         // 2. Register and Login Admin
@@ -28,7 +29,8 @@ async function runTests() {
                 email: "admin@ubuntus.org",
                 password: "Password123",
                 role: "admin",
-                organization: "Cape Town Clinic"
+                organization: "Cape Town Clinic",
+                facility_code: "FAC-999"
             })
         });
         if (!registerAdminRes.ok) throw new Error("Admin registration failed");
@@ -387,7 +389,7 @@ async function runTests() {
             },
             body: JSON.stringify({
                 organization: "Cape Town Clinic",
-                date_time: "2026-06-15 10:00:00",
+                date_time: "2026-06-25 10:00:00",
                 reason: "Routine Check"
             })
         });
@@ -469,6 +471,269 @@ async function runTests() {
         console.log(`Delete referral as receiver status: ${deleteRefRes.status} (Expected: 403)`);
         if (deleteRefRes.status !== 403) throw new Error("Allowed receiver to delete the referral!");
 
+        // J1. Test Referral permissions and validation
+        // Patient trying to create a referral -> Should fail (403)
+        console.log("Testing patient referral creation block...");
+        const patientReferralRes = await fetch("http://localhost:5000/api/referrals", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Cookie": patientCookie
+            },
+            body: JSON.stringify({
+                patient_id: patientId,
+                organization_to: "Cape Town Clinic",
+                department_to: "Cardiology",
+                staff_to: "Dr. Lerato Sibanda",
+                reason: "Heart check",
+                arrival_date: "2026-06-25 10:00:00"
+            })
+        });
+        console.log(`Patient referral creation status: ${patientReferralRes.status} (Expected: 403)`);
+        if (patientReferralRes.status !== 403) throw new Error("Allowed patient to create a referral!");
+
+        // CHW creating a referral -> Should succeed (201)
+        console.log("Testing CHW referral creation allowance...");
+        const chwReferralRes = await fetch("http://localhost:5000/api/referrals", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Cookie": chwCookie
+            },
+            body: JSON.stringify({
+                patient_id: patientId,
+                organization_to: "Cape Town Clinic",
+                department_to: "Cardiology",
+                staff_to: "Dr. Lerato Sibanda",
+                reason: "Heart check",
+                arrival_date: "2026-06-25 10:00:00"
+            })
+        });
+        console.log(`CHW referral creation status: ${chwReferralRes.status} (Expected: 201)`);
+        if (chwReferralRes.status !== 201) throw new Error("CHW referral creation failed!");
+        const chwRefData = await chwReferralRes.json();
+        // Clean up
+        await pool.query("DELETE FROM todos.referrals WHERE id = $1", [chwRefData.referral.id]);
+
+        // Creating a referral with a past date -> Should fail (400)
+        console.log("Testing referral arrival date validation (prevent past dates)...");
+        const pastReferralRes = await fetch("http://localhost:5000/api/referrals", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Cookie": adminCookie
+            },
+            body: JSON.stringify({
+                patient_id: patientId,
+                organization_to: "Cape Town Clinic",
+                department_to: "Cardiology",
+                staff_to: "Dr. Lerato Sibanda",
+                reason: "Heart check",
+                arrival_date: "2020-01-01 10:00:00"
+            })
+        });
+        console.log(`Past referral date status: ${pastReferralRes.status} (Expected: 400)`);
+        if (pastReferralRes.status !== 400) throw new Error("Allowed referral with past arrival date!");
+
+        // K. Test registration validations for admin and staff
+        console.log("Testing registration validation rules...");
+        
+        // 1. Admin without facility_code -> Should fail (400)
+        const registerAdminNoCode = await fetch("http://localhost:5000/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fullname: "NoCodeAdmin",
+                identity: "2222222222222",
+                phone_number: "0823456780",
+                password: "Password123",
+                role: "admin",
+                organization: "Cape Town Clinic"
+            })
+        });
+        console.log(`Register admin without facility code status: ${registerAdminNoCode.status} (Expected: 400)`);
+        if (registerAdminNoCode.status !== 400) throw new Error("Admin registration allowed without facility code!");
+
+        // 2. Staff without staff_number -> Should fail (400)
+        const registerStaffNoNum = await fetch("http://localhost:5000/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fullname: "NoNumStaff",
+                identity: "2222222222222",
+                phone_number: "0823456780",
+                password: "Password123",
+                role: "staff",
+                organization: "Cape Town Clinic",
+                profession: "Doctor"
+            })
+        });
+        console.log(`Register staff without staff number status: ${registerStaffNoNum.status} (Expected: 400)`);
+        if (registerStaffNoNum.status !== 400) throw new Error("Staff registration allowed without staff number!");
+
+        // 3. Staff without profession -> Should fail (400)
+        const registerStaffNoProf = await fetch("http://localhost:5000/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fullname: "NoProfStaff",
+                identity: "2222222222222",
+                phone_number: "0823456780",
+                password: "Password123",
+                role: "staff",
+                organization: "Cape Town Clinic",
+                staff_number: "ST-888"
+            })
+        });
+        console.log(`Register staff without profession status: ${registerStaffNoProf.status} (Expected: 400)`);
+        if (registerStaffNoProf.status !== 400) throw new Error("Staff registration allowed without profession!");
+
+        // 4. Staff with invalid profession -> Should fail (400)
+        const registerStaffBadProf = await fetch("http://localhost:5000/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fullname: "BadProfStaff",
+                identity: "2222222222222",
+                phone_number: "0823456780",
+                password: "Password123",
+                role: "staff",
+                organization: "Cape Town Clinic",
+                staff_number: "ST-888",
+                profession: "Developer"
+            })
+        });
+        console.log(`Register staff with invalid profession status: ${registerStaffBadProf.status} (Expected: 400)`);
+        if (registerStaffBadProf.status !== 400) throw new Error("Staff registration allowed with invalid profession!");
+
+        // 5. Staff with valid details -> Should succeed (201)
+        const registerStaffSuccess = await fetch("http://localhost:5000/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                fullname: "ValidStaff",
+                identity: "2222222222222",
+                phone_number: "0823456780",
+                password: "Password123",
+                role: "staff",
+                organization: "Cape Town Clinic",
+                staff_number: "ST-888",
+                profession: "nurse"
+            })
+        });
+        console.log(`Register staff with valid details status: ${registerStaffSuccess.status} (Expected: 201)`);
+        if (registerStaffSuccess.status !== 201) throw new Error("Valid staff registration failed!");
+
+        // 6. Test public caregivers endpoint
+        console.log("Testing public caregivers endpoint...");
+        const caregiversRes = await fetch("http://localhost:5000/api/appointments/public/caregivers?organization=Cape%20Town%20Clinic");
+        console.log(`Public caregivers status: ${caregiversRes.status} (Expected: 200)`);
+        if (caregiversRes.status !== 200) throw new Error("Failed to fetch public caregivers");
+        const caregiversData = await caregiversRes.json();
+        console.log(`Public caregivers list length: ${caregiversData.caregivers.length}`);
+        const foundStaff = caregiversData.caregivers.find(c => c.fullname === "ValidStaff");
+        if (!foundStaff) throw new Error("Expected to find registered caregiver in public list!");
+
+        // 7. Test public appointment creation without visitor_name -> Should fail (400)
+        console.log("Testing public appointment creation without visitor_name...");
+        const bookNoNameRes = await fetch("http://localhost:5000/api/appointments/public", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                organization: "Cape Town Clinic",
+                care_giver: foundStaff.id,
+                reason: "Guest checkup",
+                date_time: "2026-07-20T10:00:00",
+                contact_email: "guest@example.com",
+                contact_phone: "0714366053"
+            })
+        });
+        console.log(`Book guest appointment without visitor_name status: ${bookNoNameRes.status} (Expected: 400)`);
+        if (bookNoNameRes.status !== 400) throw new Error("Allowed guest appointment booking without visitor_name!");
+
+        // 7.1. Test public appointment creation without contact details -> Should fail (400)
+        console.log("Testing public appointment creation without contact details...");
+        const bookNoContactRes = await fetch("http://localhost:5000/api/appointments/public", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                visitor_name: "Guest Joe",
+                organization: "Cape Town Clinic",
+                care_giver: foundStaff.id,
+                reason: "Guest checkup",
+                date_time: "2026-07-20T10:00:00"
+            })
+        });
+        console.log(`Book guest appointment without contact status: ${bookNoContactRes.status} (Expected: 400)`);
+        if (bookNoContactRes.status !== 400) throw new Error("Allowed guest appointment booking without contact info!");
+
+        // 7.2. Book guest appointment with past date -> Should fail (400)
+        console.log("Testing guest appointment date validation (prevent past dates)...");
+        const pastGuestAppRes = await fetch("http://localhost:5000/api/appointments/public", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                visitor_name: "Guest Joe",
+                organization: "Cape Town Clinic",
+                care_giver: foundStaff.id,
+                reason: "Guest checkup",
+                date_time: "2020-01-01T10:00:00",
+                contact_email: "guest@example.com",
+                contact_phone: "0714366053"
+            })
+        });
+        console.log(`Past guest appointment date status: ${pastGuestAppRes.status} (Expected: 400)`);
+        if (pastGuestAppRes.status !== 400) throw new Error("Allowed guest appointment with past date!");
+
+        // 8. Test public appointment creation with valid details -> Should succeed (201)
+        console.log("Testing public appointment creation with valid details...");
+        const bookSuccessRes = await fetch("http://localhost:5000/api/appointments/public", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                visitor_name: "Guest Joe",
+                organization: "Cape Town Clinic",
+                care_giver: foundStaff.id,
+                reason: "Guest checkup",
+                date_time: "2026-07-20T10:00:00",
+                contact_email: "guest@example.com",
+                contact_phone: "0714366053"
+            })
+        });
+        console.log(`Book guest appointment with contact status: ${bookSuccessRes.status} (Expected: 201)`);
+        if (bookSuccessRes.status !== 201) throw new Error("Guest appointment booking failed!");
+        const bookData = await bookSuccessRes.json();
+        const guestApp = bookData.appointment;
+        if (!guestApp.appointment_key || guestApp.appointment_key.length !== 6) {
+            throw new Error("Guest appointment missing or invalid verification key!");
+        }
+        if (guestApp.visitor_name !== 'Guest Joe') {
+            throw new Error(`Expected visitor name to be 'Guest Joe', got: ${guestApp.visitor_name}`);
+        }
+        if (guestApp.care_giver_name !== 'ValidStaff') {
+            throw new Error(`Expected caregiver name to be 'ValidStaff', got: ${guestApp.care_giver_name}`);
+        }
+
+        // 9. Test approving the guest appointment -> Should trigger SMS/Email logic (200)
+        console.log("Testing guest appointment status approval notification flow...");
+        const approveGuestRes = await fetch(`http://localhost:5000/api/appointments/${guestApp.id}/status`, {
+            method: "PUT",
+            headers: { 
+                "Content-Type": "application/json",
+                "Cookie": adminCookie
+            },
+            body: JSON.stringify({ status: "approved" })
+        });
+        console.log(`Approve guest appointment status: ${approveGuestRes.status} (Expected: 200)`);
+        if (approveGuestRes.status !== 200) throw new Error("Failed to approve guest appointment!");
+
+        // Clean up the guest appointment
+        await pool.query("DELETE FROM todos.appointments WHERE id = $1", [guestApp.id]);
+        console.log("Guest appointment booking and notification tests passed successfully.");
+
+        // Clean up the registered staff user
+        await pool.query("DELETE FROM users.user_profiles WHERE identity = '2222222222222'");
+
         console.log("=== ALL INTEGRATION TESTS PASSED SUCCESSFULLY ===");
 
         // 11. Clean up test data
@@ -476,6 +741,7 @@ async function runTests() {
         await pool.query("DELETE FROM users.patients WHERE identity = '8888888888888'");
         await pool.query("DELETE FROM users.community_health_workers WHERE identity = '7777777777777'");
         await pool.query("DELETE FROM users.user_profiles WHERE identity = '1111111111111'");
+        await pool.query("DELETE FROM users.user_profiles WHERE identity = '2222222222222'");
         console.log("Cleanup complete.");
 
     } catch (err) {

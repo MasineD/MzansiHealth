@@ -653,12 +653,21 @@ const AppointmentsSection = ({ user }) => {
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
-    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date || !newAppointment.time) {
+    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date) {
       alert("Please fill in all required fields.");
       return;
     }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(newAppointment.date);
+    if (selectedDate < today) {
+      alert("Appointment date cannot be in the past.");
+      return;
+    }
+
     try {
-      const date_time = `${newAppointment.date}T${newAppointment.time}`;
+      const date_time = newAppointment.time ? `${newAppointment.date}T${newAppointment.time}` : `${newAppointment.date}T00:00:00`;
       const res = await axios.post('/api/appointments', {
         organization: newAppointment.organization,
         care_giver: newAppointment.care_giver || null,
@@ -770,11 +779,11 @@ const AppointmentsSection = ({ user }) => {
                 <div 
                   key={app.id} 
                   onClick={() => {
-                    if (['admin', 'staff', 'chw'].includes(user.role?.toLowerCase())) {
+                    if (['admin', 'staff', 'chw'].includes(user.role?.toLowerCase()) && Number(app.visitor_id) !== 0) {
                       setViewRecordPatientId(app.visitor_id);
                     }
                   }}
-                  className={`bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${['admin', 'staff', 'chw'].includes(user.role?.toLowerCase()) ? 'cursor-pointer' : ''}`}
+                  className={`bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${['admin', 'staff', 'chw'].includes(user.role?.toLowerCase()) && Number(app.visitor_id) !== 0 ? 'cursor-pointer' : ''}`}
                 >
                   <div className='flex-1 pr-2 text-left'>
                     <div className='flex items-center gap-2 mb-2'>
@@ -786,6 +795,8 @@ const AppointmentsSection = ({ user }) => {
                     <h3 className='font-bold text-sm text-violet-300'>{app.reason}</h3>
                     <p className='text-xs text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Org:</span> {app.organization}</p>
                     <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Visitor:</span> {app.visitor_name || `ID: ${app.visitor_id}`}</p>
+                    {app.contact_email && <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Email:</span> {app.contact_email}</p>}
+                    {app.contact_phone && <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Phone:</span> {app.contact_phone}</p>}
                     <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Caregiver:</span> {app.care_giver_name || (app.care_giver ? `ID: ${app.care_giver}` : 'Not assigned')}</p>
                     {app.appointment_key && (
                       <div className='mt-3 bg-violet-500/10 border border-violet-500/20 px-3 py-2 rounded-xl text-xs flex justify-between items-center max-w-xs'>
@@ -879,13 +890,12 @@ const AppointmentsSection = ({ user }) => {
               />
             </div>
             <div>
-              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time <span className='text-red-400'>*</span></label>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time</label>
               <input 
                 type="time" 
                 value={newAppointment.time} 
                 onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
                 className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
-                required
               />
             </div>
           </div>
@@ -2094,7 +2104,7 @@ const ReferralsSection = ({ user }) => {
   };
 
   const colors = getRoleColors(user.role);
-  const canManage = ['admin', 'staff'].includes(user.role?.toLowerCase());
+  const canManage = ['admin', 'staff', 'chw'].includes(user.role?.toLowerCase());
 
   const fetchReferrals = async () => {
     try {
@@ -2188,6 +2198,14 @@ const ReferralsSection = ({ user }) => {
       return;
     }
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(newReferral.arrival_date);
+    if (selectedDate < today) {
+      alert("Referral arrival date cannot be in the past.");
+      return;
+    }
+
     try {
       await axios.post('/api/referrals', {
         patient_id: newReferral.patient_id,
@@ -2238,6 +2256,14 @@ const ReferralsSection = ({ user }) => {
     
     if (!editForm.patient_id || !editForm.organization_to || !finalDepartment || !editForm.reason || !editForm.arrival_date) {
       alert("Please fill in all required fields.");
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(editForm.arrival_date);
+    if (selectedDate < today) {
+      alert("Referral arrival date cannot be in the past.");
       return;
     }
 

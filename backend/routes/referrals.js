@@ -89,11 +89,11 @@ router.get('/', protect, async (req, res) => {
     }
 });
 
-// Create a new referral (Admin and Staff only)
+// Create a new referral (Admin, Staff, and CHW only)
 router.post('/', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can create referrals.' });
+        if (!['admin', 'staff', 'chw'].includes(req.user.role?.toLowerCase())) {
+            return res.status(403).json({ message: 'Access denied. Only Admins, Staff, and Community Health Workers can create referrals.' });
         }
 
         const { patient_id, organization_to, department_to, staff_to, reason, arrival_date } = req.body;
@@ -102,15 +102,26 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ message: 'All fields are required: patient_id, organization_to, department_to, reason, and arrival_date.' });
         }
 
+        const referralDateStr = arrival_date.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (referralDateStr < todayStr) {
+            return res.status(400).json({ message: 'Referral arrival date cannot be in the past' });
+        }
+
         // Check role-based constraints:
-        // "The staff member can only refer patients while admin can refer both patients and health care workers."
-        if (req.user.role === 'staff') {
+        // Staff and CHWs can only refer patients, whereas admins can refer both patients and community health workers.
+        if (['staff', 'chw'].includes(req.user.role?.toLowerCase())) {
             // Verify patient_id exists in users.patients table
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0) {
-                return res.status(400).json({ message: 'Access denied. Staff members can only refer patients.' });
+                return res.status(400).json({ message: 'Access denied. Only patients can be referred.' });
             }
-        } else if (req.user.role === 'admin') {
+        } else if (req.user.role?.toLowerCase() === 'admin') {
             // Verify patient_id exists in users.patients OR users.community_health_workers
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             const chwCheck = await pool.query('SELECT 1 FROM users.community_health_workers WHERE id = $1', [patient_id]);
@@ -223,11 +234,11 @@ router.post('/', protect, async (req, res) => {
     }
 });
 
-// Update a referral (Admin and Staff only)
+// Update a referral (Admin, Staff, and CHW only)
 router.put('/:id', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can edit referrals.' });
+        if (!['admin', 'staff', 'chw'].includes(req.user.role?.toLowerCase())) {
+            return res.status(403).json({ message: 'Access denied. Only Admins, Staff, and Community Health Workers can edit referrals.' });
         }
 
         const { id } = req.params;
@@ -237,13 +248,24 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(400).json({ message: 'All fields are required: patient_id, organization_to, department_to, reason, and arrival_date.' });
         }
 
+        const referralDateStr = arrival_date.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (referralDateStr < todayStr) {
+            return res.status(400).json({ message: 'Referral arrival date cannot be in the past' });
+        }
+
         // Check role-based constraints
-        if (req.user.role === 'staff') {
+        if (['staff', 'chw'].includes(req.user.role?.toLowerCase())) {
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0) {
-                return res.status(400).json({ message: 'Access denied. Staff members can only refer patients.' });
+                return res.status(400).json({ message: 'Access denied. Only patients can be referred.' });
             }
-        } else if (req.user.role === 'admin') {
+        } else if (req.user.role?.toLowerCase() === 'admin') {
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             const chwCheck = await pool.query('SELECT 1 FROM users.community_health_workers WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0 && chwCheck.rows.length === 0) {
@@ -300,11 +322,11 @@ router.put('/:id', protect, async (req, res) => {
     }
 });
 
-// Delete a referral (Admin and Staff only)
+// Delete a referral (Admin, Staff, and CHW only)
 router.delete('/:id', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can delete referrals.' });
+        if (!['admin', 'staff', 'chw'].includes(req.user.role?.toLowerCase())) {
+            return res.status(403).json({ message: 'Access denied. Only Admins, Staff, and Community Health Workers can delete referrals.' });
         }
 
         const { id } = req.params;
