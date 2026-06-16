@@ -310,8 +310,8 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ message: 'Organization is required for scheduling an appointment' });
         }
 
-        // Generate the 6-character key
-        const appointment_key = generateKey();
+        // Use user's unique fulfillment_code as appointment key, or generate fallback if not found
+        const appointment_key = req.user.fulfillment_code || generateKey();
 
         const result = await pool.query(
             `INSERT INTO todos.appointments (visitor_id, organization, care_giver, reason, date_time, status, appointment_key)

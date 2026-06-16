@@ -44,7 +44,7 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
           {/* Clinician Portal Tag */}
           <div className='bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide uppercase mb-6 flex items-center gap-2'>
             <FaUserMd />
-            <span>Clinician Portal</span>
+            <span>{user.profession ? `${user.profession} Portal` : 'Clinician Portal'}</span>
           </div>
 
           {/* Navigation Links */}
@@ -81,12 +81,24 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
-                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Dr. {user.fullname}</h1>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>
+                  Welcome, {user.profession?.toLowerCase() === 'doctor' ? 'Dr. ' : user.profession?.toLowerCase() === 'nurse' ? 'Nurse ' : ''}{user.fullname}
+                </h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-emerald-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Quick Stats Grid */}
@@ -189,6 +201,380 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
   );
 };
 
+// --- Social Worker Dashboard Component ---
+const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
+  const [activeTab, setActiveTab] = React.useState('overview');
+
+  const menuItems = [
+    { id: 'overview', label: 'Overview', icon: <FaTasks /> },
+    { id: 'patients', label: 'Patients', icon: <FaUsers /> },
+    { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
+  ];
+
+  return (
+    <div className='min-h-screen bg-slate-950 text-white flex flex-col md:flex-row relative overflow-hidden'>
+      {/* Decorative background glow */}
+      <div className='absolute -top-40 -right-40 w-96 h-96 bg-violet-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse'></div>
+      <div className='absolute -bottom-40 -left-40 w-96 h-96 bg-fuchsia-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse delay-1000'></div>
+
+      {/* Sidebar */}
+      <aside className='w-full md:w-64 bg-[#090b0d] border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-6 shrink-0 relative z-20 justify-between'>
+        <div>
+          {/* Logo / Brand */}
+          <div className='flex items-center gap-2 mb-8'>
+            <div className='bg-violet-500 text-black p-1.5 rounded-lg font-bold flex items-center justify-center'>
+              <FaHeartbeat size={18} />
+            </div>
+            <span className='text-lg font-black tracking-tight text-white'>
+              Ubuntu<span className='text-violet-500'>Health</span>
+            </span>
+          </div>
+
+          {/* Social Worker Portal Tag */}
+          <div className='bg-violet-500/10 text-violet-300 border border-violet-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide uppercase mb-6 flex items-center gap-2'>
+            <FaUsers />
+            <span>Social Worker Portal</span>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className='space-y-1.5'>
+            {menuItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  activeTab === item.id 
+                    ? 'bg-violet-500 text-black shadow-lg shadow-violet-500/10' 
+                    : 'bg-white/5 hover:bg-violet-500/10 text-gray-400 hover:text-violet-400 border border-transparent hover:border-violet-500/20'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Logout at Bottom */}
+        <button 
+          onClick={handleLogout} 
+          className='cursor-pointer flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 px-5 py-3 rounded-xl transition-all duration-300 font-semibold text-sm hover:scale-[1.02] active:scale-95 mt-8 text-gray-400 hover:text-red-400'
+        >
+          <FaSignOutAlt />
+          Logout
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <main className='flex-1 p-6 md:p-12 overflow-y-auto relative z-10'>
+        {activeTab === 'overview' ? (
+          <div className='max-w-6xl mx-auto'>
+            {/* Header */}
+            <header className='mb-12 pb-6 border-b border-violet-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Social Worker {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-violet-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
+            </header>
+
+            {/* Quick Stats Grid */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
+              {[
+                { label: 'Assigned Cases', value: '38', icon: <FaUsers className='text-violet-400' />, desc: '12 high priority' },
+                { label: "Today's Visits", value: '4', icon: <FaCalendarAlt className='text-indigo-400' />, desc: '2 completed' },
+                { label: 'Referrals Logged', value: '15', icon: <FaExchangeAlt className='text-purple-400' />, desc: '+3 this month' },
+                { label: 'Tasks Pending', value: '6', icon: <FaClipboardList className='text-pink-400' />, desc: 'Due today' }
+              ].map((stat, idx) => (
+                <div key={idx} className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-violet-500/30 hover:scale-[1.02] transition-all duration-300'>
+                  <div className='flex justify-between items-start mb-4'>
+                    <span className='text-gray-400 text-sm font-medium'>{stat.label}</span>
+                    <div className='bg-white/5 p-2 rounded-lg'>{stat.icon}</div>
+                  </div>
+                  <div className='text-3xl font-bold mb-1'>{stat.value}</div>
+                  <span className='text-xs text-gray-500'>{stat.desc}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Dashboard Sections */}
+            <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+              {/* Main Area: Cases List */}
+              <div className='lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+                <div className='flex justify-between items-center mb-6'>
+                  <h2 className='text-xl font-bold flex items-center gap-2'>
+                    <FaClipboardList className='text-violet-400' />
+                    Recent Case Actions
+                  </h2>
+                </div>
+                
+                <div className='space-y-4'>
+                  {[
+                    { name: 'Thabo Mbeki', condition: 'Housing Assistance Coordination', time: '09:00 AM', status: 'Completed' },
+                    { name: 'Naledi Pandor', condition: 'Family Support Consultation', time: '11:00 AM', status: 'Completed' },
+                    { name: 'Cyril Ramaphosa', condition: 'Community Grant Guidance', time: '01:30 PM', status: 'In Progress' },
+                    { name: 'Helen Zille', condition: 'Elderly Care Assessment', time: '03:00 PM', status: 'Upcoming' }
+                  ].map((patient, idx) => (
+                    <div key={idx} className='flex justify-between items-center bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-all duration-300'>
+                      <div>
+                        <h3 className='font-semibold'>{patient.name}</h3>
+                        <p className='text-xs text-gray-400'>{patient.condition}</p>
+                      </div>
+                      <div className='text-right'>
+                        <p className='text-sm font-medium mb-1'>{patient.time}</p>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                          patient.status === 'Completed' ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30' :
+                          patient.status === 'In Progress' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                          'bg-white/5 text-gray-400 border border-white/10'
+                        }`}>
+                          {patient.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sidebar Area: Social Tools */}
+              <div className='space-y-6'>
+                <div className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+                  <h2 className='text-xl font-bold mb-4 flex items-center gap-2'>
+                    <FaMedkit className='text-indigo-400' />
+                    Social Services Tools
+                  </h2>
+                  <div className='space-y-3'>
+                    {['Log Case Assessment', 'Coordinate Care Plan', 'Access Resource Registry', 'Outreach Scheduling'].map((tool, idx) => (
+                      <button key={idx} className='cursor-pointer w-full text-left bg-white/5 hover:bg-violet-500/10 border border-white/10 hover:border-violet-500/20 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02]'>
+                        {tool}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'referrals' ? (
+          <ReferralsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+        ) : (
+          <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
+            <FaUsers size={60} className='mx-auto mb-4 text-violet-400 animate-pulse' />
+            <h2 className='text-2xl font-bold mb-2 capitalize'>{activeTab} Section</h2>
+            <p className='text-gray-400 text-sm max-w-md mx-auto'>
+              The features for the social worker dashboard's {activeTab} tab will be fully implemented according to subsequent instructions.
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+// --- Other / Support Dashboard Component ---
+const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
+  const [activeTab, setActiveTab] = React.useState('overview');
+
+  const menuItems = [
+    { id: 'overview', label: 'Overview', icon: <FaTasks /> },
+    { id: 'patients', label: 'Patients', icon: <FaUsers /> },
+    { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+    { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
+    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
+  ];
+
+  return (
+    <div className='min-h-screen bg-slate-950 text-white flex flex-col md:flex-row relative overflow-hidden'>
+      {/* Decorative background glow */}
+      <div className='absolute -top-40 -right-40 w-96 h-96 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse'></div>
+      <div className='absolute -bottom-40 -left-40 w-96 h-96 bg-orange-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse delay-1000'></div>
+
+      {/* Sidebar */}
+      <aside className='w-full md:w-64 bg-[#090b0d] border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-6 shrink-0 relative z-20 justify-between'>
+        <div>
+          {/* Logo / Brand */}
+          <div className='flex items-center gap-2 mb-8'>
+            <div className='bg-amber-500 text-black p-1.5 rounded-lg font-bold flex items-center justify-center'>
+              <FaHeartbeat size={18} />
+            </div>
+            <span className='text-lg font-black tracking-tight text-white'>
+              Ubuntu<span className='text-amber-500'>Health</span>
+            </span>
+          </div>
+
+          {/* Support Portal Tag */}
+          <div className='bg-amber-500/10 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide uppercase mb-6 flex items-center gap-2'>
+            <FaHospital />
+            <span>Support Portal</span>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className='space-y-1.5'>
+            {menuItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  activeTab === item.id 
+                    ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' 
+                    : 'bg-white/5 hover:bg-amber-500/10 text-gray-400 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Logout at Bottom */}
+        <button 
+          onClick={handleLogout} 
+          className='cursor-pointer flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 px-5 py-3 rounded-xl transition-all duration-300 font-semibold text-sm hover:scale-[1.02] active:scale-95 mt-8 text-gray-400 hover:text-red-400'
+        >
+          <FaSignOutAlt />
+          Logout
+        </button>
+      </aside>
+
+      {/* Main Content */}
+      <main className='flex-1 p-6 md:p-12 overflow-y-auto relative z-10'>
+        {activeTab === 'overview' ? (
+          <div className='max-w-6xl mx-auto'>
+            {/* Header */}
+            <header className='mb-12 pb-6 border-b border-amber-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Support Staff {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-amber-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
+            </header>
+
+            {/* Quick Stats Grid */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
+              {[
+                { label: 'Assigned Tasks', value: '18', icon: <FaClipboardList className='text-amber-400' />, desc: '4 active' },
+                { label: 'Support Queue', value: '5', icon: <FaHospital className='text-orange-400' />, desc: '3 unresolved' },
+                { label: 'System Logs', value: '124', icon: <FaTasks className='text-yellow-400' />, desc: 'All systems normal' },
+                { label: 'Daily Events', value: '2', icon: <FaCalendarAlt className='text-red-400' />, desc: 'Next at 3:00 PM' }
+              ].map((stat, idx) => (
+                <div key={idx} className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-amber-500/30 hover:scale-[1.02] transition-all duration-300'>
+                  <div className='flex justify-between items-start mb-4'>
+                    <span className='text-gray-400 text-sm font-medium'>{stat.label}</span>
+                    <div className='bg-white/5 p-2 rounded-lg'>{stat.icon}</div>
+                  </div>
+                  <div className='text-3xl font-bold mb-1'>{stat.value}</div>
+                  <span className='text-xs text-gray-500'>{stat.desc}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Dashboard Sections */}
+            <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+              {/* Main Area: Tasks List */}
+              <div className='lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+                <div className='flex justify-between items-center mb-6'>
+                  <h2 className='text-xl font-bold flex items-center gap-2'>
+                    <FaClipboardList className='text-amber-400' />
+                    Daily Support Activities
+                  </h2>
+                </div>
+                
+                <div className='space-y-4'>
+                  {[
+                    { name: 'System Maintenance', condition: 'Database Backup & Health Check', time: '08:00 AM', status: 'Completed' },
+                    { name: 'Inventory Audit', condition: 'Verify Clinic Supply Stock', time: '10:00 AM', status: 'Completed' },
+                    { name: 'Registration Desk Help', condition: 'Support New Patients In-take', time: '02:00 PM', status: 'In Progress' },
+                    { name: 'Facility Audit', condition: 'Environmental Safety Checklist', time: '04:30 PM', status: 'Upcoming' }
+                  ].map((patient, idx) => (
+                    <div key={idx} className='flex justify-between items-center bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-all duration-300'>
+                      <div>
+                        <h3 className='font-semibold'>{patient.name}</h3>
+                        <p className='text-xs text-gray-400'>{patient.condition}</p>
+                      </div>
+                      <div className='text-right'>
+                        <p className='text-sm font-medium mb-1'>{patient.time}</p>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                          patient.status === 'Completed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                          patient.status === 'In Progress' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                          'bg-white/5 text-gray-400 border border-white/10'
+                        }`}>
+                          {patient.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sidebar Area: Support Tools */}
+              <div className='space-y-6'>
+                <div className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+                  <h2 className='text-xl font-bold mb-4 flex items-center gap-2'>
+                    <FaMedkit className='text-orange-400' />
+                    Support Utilities
+                  </h2>
+                  <div className='space-y-3'>
+                    {['System Health Logs', 'Directory Registry', 'Access Support Queue', 'Log General Task'].map((tool, idx) => (
+                      <button key={idx} className='cursor-pointer w-full text-left bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/20 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02]'>
+                        {tool}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'appointments' ? (
+          <AppointmentsSection user={user} />
+        ) : activeTab === 'referrals' ? (
+          <ReferralsSection user={user} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+        ) : (
+          <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
+            <FaHospital size={60} className='mx-auto mb-4 text-amber-400 animate-pulse' />
+            <h2 className='text-2xl font-bold mb-2 capitalize'>{activeTab} Section</h2>
+            <p className='text-gray-400 text-sm max-w-md mx-auto'>
+              The features for the support dashboard's {activeTab} tab will be fully implemented according to subsequent instructions.
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
 // --- Patient Dashboard Component ---
 const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
@@ -262,13 +648,23 @@ const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessa
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-purple-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-purple-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
                 <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-purple-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -453,12 +849,22 @@ const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages,
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-orange-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-orange-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-orange-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Community Work Stats Grid */}
@@ -1222,7 +1628,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
   });
 
   // Verification state (required for editing)
-  const [verification, setVerification] = React.useState({ patient_name: '', patient_identity: '' });
+  const [verification, setVerification] = React.useState({ patient_name: '', fulfillment_key: '' });
 
   // Routine state
   const [showAddRoutine, setShowAddRoutine] = React.useState(null); // record_id
@@ -1243,7 +1649,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
       if (res.data.patientInfo) {
         setVerification({
           patient_name: res.data.patientInfo.fullname,
-          patient_identity: ''
+          fulfillment_key: ''
         });
       }
     } catch (err) {
@@ -1517,8 +1923,8 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
 
   const handleSaveRecord = async (e) => {
     e.preventDefault();
-    if (!verification.patient_name || !verification.patient_identity) {
-      alert("Verification required: Please provide patient name and ID number.");
+    if (!verification.patient_name || !verification.fulfillment_key) {
+      alert("Verification required: Please provide patient name and fulfillment key.");
       return;
     }
 
@@ -1526,7 +1932,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
       const payload = {
         ...newRecordData,
         patient_name: verification.patient_name,
-        patient_identity: verification.patient_identity
+        fulfillment_key: verification.fulfillment_key
       };
 
       if (editingRecord) {
@@ -1621,7 +2027,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     setEditingRecord(record);
     setVerification({
       patient_name: data.patientInfo?.fullname || '',
-      patient_identity: ''
+      fulfillment_key: ''
     });
     setNewRecordData({
       blood_group: record.blood_group || '',
@@ -1732,15 +2138,15 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4">
             <div className="md:col-span-2">
               <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Database Lock Verification</h4>
-              <p className="text-[10px] text-gray-400 mt-0.5">Please confirm the patient's name and ID number to unlock and save modifications.</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Please confirm the patient's name and fulfillment key to unlock and save modifications.</p>
             </div>
             <div>
               <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient Full Name <span className="text-red-400">*</span></label>
               <input type="text" value={verification.patient_name} onChange={e => setVerification({...verification, patient_name: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient ID Number <span className="text-red-400">*</span></label>
-              <input type="text" value={verification.patient_identity} onChange={e => setVerification({...verification, patient_identity: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient Fulfillment Key <span className="text-red-400">*</span></label>
+              <input type="text" value={verification.fulfillment_key} onChange={e => setVerification({...verification, fulfillment_key: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
             </div>
           </div>
 
@@ -1829,7 +2235,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
             Clinical Records Log
           </h3>
           {!isPatient && !showAddRecord && !editingRecord && (
-            <button onClick={() => { setShowAddRecord(true); setEditingRecord(null); setVerification(prev => ({ ...prev, patient_identity: '' })); }} className={`cursor-pointer flex items-center gap-1.5 text-xs ${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-105`}>
+            <button onClick={() => { setShowAddRecord(true); setEditingRecord(null); setVerification(prev => ({ ...prev, fulfillment_key: '' })); }} className={`cursor-pointer flex items-center gap-1.5 text-xs ${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-105`}>
               <FaPlus size={10} /> Add record
             </button>
           )}
@@ -4258,7 +4664,14 @@ const Dashboard = ({ user, setUser }) => {
   if (role === 'admin') {
     return <AdminDashboard {...commonProps} />;
   } else if (role === 'staff') {
-    return <StaffDashboard {...commonProps} />;
+    const profession = user.profession?.toLowerCase();
+    if (profession === 'social worker') {
+      return <SocialWorkerDashboard {...commonProps} />;
+    } else if (profession === 'other') {
+      return <OtherDashboard {...commonProps} />;
+    } else {
+      return <StaffDashboard {...commonProps} />;
+    }
   } else if (role === 'chw') {
     return <ChwDashboard {...commonProps} />;
   } else {

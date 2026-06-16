@@ -12,17 +12,31 @@ router.get('/', protect, async (req, res) => {
     try {
         const user = req.user; // Get the authenticated user from the protect middleware
         const role = user.role?.toLowerCase();
+        const profession = user.profession?.toLowerCase();
         let patients;
-        if (role === 'admin') {
+
+        if (role === 'chw' || (role === 'staff' && ['doctor', 'nurse', 'social worker'].includes(profession))) {
+            // New logic: patients who made appointments with them or were referred to them
+            const result = await pool.query(
+                `SELECT * FROM users.patients 
+                 WHERE id IN (
+                     SELECT visitor_id FROM todos.appointments 
+                     WHERE care_giver = $1
+                 )
+                 OR id IN (
+                     SELECT patient_id FROM todos.referrals 
+                     WHERE LOWER(staff_to) = LOWER($2)
+                 )
+                 ORDER BY created_at DESC`,
+                [user.id.toString(), (user.fullname || '').trim()]
+            );
+            patients = result.rows;
+        } else if (role === 'admin') {
             // Admin can see patients they registered
             const result = await pool.query('SELECT * FROM users.patients WHERE registra_id = $1 ORDER BY created_at DESC', [user.id]);
             patients = result.rows;
-        } else if (role === 'chw') {
-            // CHW can only see patients assigned to them
-            const result = await pool.query('SELECT * FROM users.patients WHERE chw_id = $1 ORDER BY created_at DESC', [user.id]);
-            patients = result.rows;
         } else {
-            // Staff can see patients of their organization (registered by admins of the same organization)
+            // Staff/Other can see patients of their organization (registered by admins of the same organization)
             const result = await pool.query(
                 `SELECT * FROM users.patients 
                  WHERE registra_id IN (
@@ -52,6 +66,25 @@ function getNextMonday() {
     nextMonday.setDate(today.getDate() + daysToAdd);
     return nextMonday;
 }
+
+const generateUniqueFulfillmentCode = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code;
+    let isUnique = false;
+    while (!isUnique) {
+        code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const pRes = await pool.query("SELECT 1 FROM users.patients WHERE fulfillment_code = $1", [code]);
+        const chwRes = await pool.query("SELECT 1 FROM users.community_health_workers WHERE fulfillment_code = $1", [code]);
+        const userRes = await pool.query("SELECT 1 FROM users.user_profiles WHERE fulfillment_code = $1", [code]);
+        if (pRes.rows.length === 0 && chwRes.rows.length === 0 && userRes.rows.length === 0) {
+            isUnique = true;
+        }
+    }
+    return code;
+};
 
 // Route to add a new patient (for admin and staff)
 router.post('/', protect, async (req, res) => {
@@ -91,13 +124,15 @@ router.post('/', protect, async (req, res) => {
 
         // Hash the password for login
         const hashedPassword = await bcrypt.hash(password.trim(), 10);
+        const fulfillment_code = await generateUniqueFulfillmentCode();
 
         const result = await pool.query(
             `INSERT INTO users.patients (
                 fullname, identity, gender, password, email, phone_number,
                 diagnosis, house_number, surbub, municipality, city,
-                nok_fullname, nok_phone, nok_email, registra_id, chw_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *`,
+                nok_fullname, nok_phone, nok_email, registra_id, chw_id,
+                fulfillment_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *`,
             [
                 fullname.trim(),
                 identity.trim(),
@@ -114,7 +149,8 @@ router.post('/', protect, async (req, res) => {
                 nok_phone ? nok_phone.trim() : null,
                 nok_email ? nok_email.trim() : null,
                 user.id,
-                chw_id ? parseInt(chw_id, 10) : null
+                chw_id ? parseInt(chw_id, 10) : null,
+                fulfillment_code
             ]
         );
 

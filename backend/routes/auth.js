@@ -18,6 +18,26 @@ const generateToken = (id, role) => {
     return jwt.sign({id, role}, process.env.JWT_SECRET,
         { expiresIn: '30d' }); //Generates a JSON Web Token (JWT) that includes the user's ID and role as payload. The token is signed using a secret key from the environment variables and is set to expire in 30 days.
 };
+// Function to generate a unique 6-character alphanumeric code across all user tables
+const generateUniqueFulfillmentCode = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code;
+    let isUnique = false;
+    while (!isUnique) {
+        code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const pRes = await pool.query("SELECT 1 FROM users.patients WHERE fulfillment_code = $1", [code]);
+        const chwRes = await pool.query("SELECT 1 FROM users.community_health_workers WHERE fulfillment_code = $1", [code]);
+        const userRes = await pool.query("SELECT 1 FROM users.user_profiles WHERE fulfillment_code = $1", [code]);
+        if (pRes.rows.length === 0 && chwRes.rows.length === 0 && userRes.rows.length === 0) {
+            isUnique = true;
+        }
+    }
+    return code;
+};
+
 router.post('/register', async (req, res) => {
     try {
         const { fullname, identity, password, email, phone_number, role, organization, facility_code, staff_number, profession } = req.body;    //Extracts the registration fields from the request body.
@@ -77,8 +97,9 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
         }
         const hashedPassword = await bcrypt.hash(password, 10);    //Hashes the user's password using bcrypt with a salt round of 10.
+        const fulfillment_code = await generateUniqueFulfillmentCode();
         const newUser = await pool.query(
-            'INSERT INTO users.user_profiles (fullname, identity, password, email, phone_number, role, organization, facility_code, staff_number, profession) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id,fullname,identity,email,phone_number,role,organization,facility_code,staff_number,profession',
+            'INSERT INTO users.user_profiles (fullname, identity, password, email, phone_number, role, organization, facility_code, staff_number, profession, fulfillment_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id,fullname,identity,email,phone_number,role,organization,facility_code,staff_number,profession,fulfillment_code',
             [
                 fullname, 
                 identity, 
@@ -89,7 +110,8 @@ router.post('/register', async (req, res) => {
                 (role === 'admin' || role === 'staff') ? organization.trim() : null,
                 role === 'admin' ? facility_code.trim() : null,
                 role === 'staff' ? staff_number.trim() : null,
-                role === 'staff' ? profession.trim() : null
+                role === 'staff' ? profession.trim() : null,
+                fulfillment_code
             ]
         );   //Inserts the new user into the database with the hashed password, role, and organization, and returns the newly created user record.
         const token = generateToken(newUser.rows[0].id, newUser.rows[0].role);   //Generates a JWT token for the newly registered user using their ID.
@@ -153,7 +175,7 @@ router.post('/login', async (req, res) => {
         const token = generateToken(userData.id, userData.role);
         res.cookie('token', token, cookieOptions);
         
-        res.json({ user: { id: userData.id, fullname: userData.fullname, identity: userData.identity, email: userData.email, phone_number: userData.phone_number, role: userData.role, organization: userData.organization } });
+        res.json({ user: { id: userData.id, fullname: userData.fullname, identity: userData.identity, email: userData.email, phone_number: userData.phone_number, role: userData.role, organization: userData.organization, facility_code: userData.facility_code || null, staff_number: userData.staff_number || null, profession: userData.profession || null, fulfillment_code: userData.fulfillment_code } });
     } catch (error) {
         console.error('Error in login route:', error);
         return res.status(500).json({ message: 'Server error during login' });
