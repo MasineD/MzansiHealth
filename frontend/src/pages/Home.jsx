@@ -364,7 +364,7 @@ const Home = ({ setUser }) => {
             ))}
           </div>
 
-          {/* Mobile Menu */}
+          {/* Mobile Menu Toggle*/}
           <button 
             className='md:hidden text-white/90 hover:text-green-500 transition-colors duration-300'
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
