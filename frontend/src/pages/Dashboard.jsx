@@ -81,14 +81,24 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>
                   Welcome, {user.profession?.toLowerCase() === 'doctor' ? 'Dr. ' : user.profession?.toLowerCase() === 'nurse' ? 'Nurse ' : ''}{user.fullname}
                 </h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-emerald-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Quick Stats Grid */}
@@ -263,12 +273,22 @@ const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chat
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-violet-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-violet-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Social Worker {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-violet-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Quick Stats Grid */}
@@ -440,12 +460,22 @@ const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-amber-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-amber-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Support Staff {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-amber-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Quick Stats Grid */}
@@ -618,13 +648,23 @@ const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessa
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-purple-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-purple-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
                 <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-purple-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -809,12 +849,22 @@ const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages,
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-orange-500/20 flex justify-between items-center'>
+            <header className='mb-12 pb-6 border-b border-orange-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
               <div>
                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
               </div>
-              <NotificationPanel notifications={notifications} socket={socket} />
+              <div className='flex items-center gap-4 self-end md:self-auto'>
+                {user.fulfillment_code && (
+                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+                    <div className='flex flex-col text-left'>
+                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+                      <span className='font-mono text-base font-black tracking-widest text-orange-400'>{user.fulfillment_code}</span>
+                    </div>
+                  </div>
+                )}
+                <NotificationPanel notifications={notifications} socket={socket} />
+              </div>
             </header>
 
             {/* Community Work Stats Grid */}
