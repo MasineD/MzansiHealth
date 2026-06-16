@@ -204,7 +204,7 @@ async function runTests() {
 
         // 9. Update health record with verification validation
         console.log("9. Testing edit validation logic...");
-        // A. Wrong name/identity verification -> Should fail
+        // A. Wrong name/fulfillment key verification -> Should fail
         const editFailRes = await fetch(`http://localhost:5000/api/records/${defaultRecordId}`, {
             method: "PUT",
             headers: { 
@@ -213,13 +213,13 @@ async function runTests() {
             },
             body: JSON.stringify({
                 patient_name: "Wrong Name",
-                patient_identity: "8888888888888",
+                fulfillment_key: "WRONG",
                 blood_group: "O+"
             })
         });
         console.log(`Edit with wrong verification name: status ${editFailRes.status} (Expected: 400)`);
         if (editFailRes.status !== 400) throw new Error("Edit allowed with wrong verification info");
-
+ 
         // B. Correct verification -> Should succeed
         const editSucceedRes = await fetch(`http://localhost:5000/api/records/${defaultRecordId}`, {
             method: "PUT",
@@ -229,7 +229,7 @@ async function runTests() {
             },
             body: JSON.stringify({
                 patient_name: "Patient Test",
-                patient_identity: "8888888888888",
+                fulfillment_key: patientData.patient.fulfillment_code,
                 blood_group: "A+",
                 weight: 68.5,
                 height: 172.0,

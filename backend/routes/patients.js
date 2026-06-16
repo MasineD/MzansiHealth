@@ -12,17 +12,31 @@ router.get('/', protect, async (req, res) => {
     try {
         const user = req.user; // Get the authenticated user from the protect middleware
         const role = user.role?.toLowerCase();
+        const profession = user.profession?.toLowerCase();
         let patients;
-        if (role === 'admin') {
+
+        if (role === 'chw' || (role === 'staff' && ['doctor', 'nurse', 'social worker'].includes(profession))) {
+            // New logic: patients who made appointments with them or were referred to them
+            const result = await pool.query(
+                `SELECT * FROM users.patients 
+                 WHERE id IN (
+                     SELECT visitor_id FROM todos.appointments 
+                     WHERE care_giver = $1
+                 )
+                 OR id IN (
+                     SELECT patient_id FROM todos.referrals 
+                     WHERE LOWER(staff_to) = LOWER($2)
+                 )
+                 ORDER BY created_at DESC`,
+                [user.id.toString(), (user.fullname || '').trim()]
+            );
+            patients = result.rows;
+        } else if (role === 'admin') {
             // Admin can see patients they registered
             const result = await pool.query('SELECT * FROM users.patients WHERE registra_id = $1 ORDER BY created_at DESC', [user.id]);
             patients = result.rows;
-        } else if (role === 'chw') {
-            // CHW can only see patients assigned to them
-            const result = await pool.query('SELECT * FROM users.patients WHERE chw_id = $1 ORDER BY created_at DESC', [user.id]);
-            patients = result.rows;
         } else {
-            // Staff can see patients of their organization (registered by admins of the same organization)
+            // Staff/Other can see patients of their organization (registered by admins of the same organization)
             const result = await pool.query(
                 `SELECT * FROM users.patients 
                  WHERE registra_id IN (

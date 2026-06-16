@@ -359,14 +359,16 @@ router.put('/:id', protect, async (req, res) => {
         }
 
         const {
-            patient_name, patient_identity, blood_group, weight, height, temperature,
+            patient_name, fulfillment_key, blood_group, weight, height, temperature,
             blood_pressure, heart_rate, symptoms, allergies, diagnosis, procedures,
             admission_date, release_date, prescription, long_term_treatment, care_giver
         } = req.body;
 
-        // Verification validation: Name and Identity are required to edit
-        if (!patient_name || !patient_name.trim() || !patient_identity || !patient_identity.trim()) {
-            return res.status(400).json({ message: 'Verification required: Please provide the patient\'s name and identity number to edit.' });
+        const actualKey = fulfillment_key || req.body.fulfillment_code || req.body.patient_identity;
+
+        // Verification validation: Name and Fulfillment Key are required to edit
+        if (!patient_name || !patient_name.trim() || !actualKey || !actualKey.trim()) {
+            return res.status(400).json({ message: 'Verification required: Please provide the patient\'s name and fulfillment key to edit.' });
         }
 
         // Check record exists
@@ -376,14 +378,14 @@ router.put('/:id', protect, async (req, res) => {
         }
         const record = recordQuery.rows[0];
 
-        // Verify that patient_name and patient_identity match users.patients table record
+        // Verify that patient_name and fulfillment_code match users.patients table record
         const patientVerify = await pool.query(
-            "SELECT 1 FROM users.patients WHERE id = $1 AND LOWER(fullname) = LOWER($2) AND LOWER(identity) = LOWER($3)",
-            [record.patient_id, patient_name.trim(), patient_identity.trim()]
+            "SELECT 1 FROM users.patients WHERE id = $1 AND LOWER(fullname) = LOWER($2) AND LOWER(fulfillment_code) = LOWER($3)",
+            [record.patient_id, patient_name.trim(), actualKey.trim()]
         );
 
         if (patientVerify.rows.length === 0) {
-            return res.status(400).json({ message: 'Verification failed: Provided patient name and identity number do not match our database records.' });
+            return res.status(400).json({ message: 'Verification failed: Provided patient name and fulfillment key do not match our database records.' });
         }
 
         // Apply update
