@@ -65,7 +65,7 @@ const createNotification = (userId, title, message) => {
 // Expose createNotification to express app
 app.set('createNotification', createNotification);
 
-const Port = process.env.PORT || 5000;
+const Port = process.env.PORT || 5001;
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
