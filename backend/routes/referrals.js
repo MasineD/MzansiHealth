@@ -2,6 +2,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import protect from '../middleware/auth.js';
+import { sendSMS } from '../utils/sms.js';
 
 const router = express.Router();
 
@@ -88,11 +89,11 @@ router.get('/', protect, async (req, res) => {
     }
 });
 
-// Create a new referral (Admin and Staff only)
+// Create a new referral (all registered users except patients can make referrals)
 router.post('/', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can create referrals.' });
+        if (req.user.role?.toLowerCase() === 'patient') {
+            return res.status(403).json({ message: 'Access denied. Patients cannot create referrals.' });
         }
 
         const { patient_id, organization_to, department_to, staff_to, reason, arrival_date } = req.body;
@@ -101,15 +102,26 @@ router.post('/', protect, async (req, res) => {
             return res.status(400).json({ message: 'All fields are required: patient_id, organization_to, department_to, reason, and arrival_date.' });
         }
 
+        const referralDateStr = arrival_date.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (referralDateStr < todayStr) {
+            return res.status(400).json({ message: 'Referral arrival date cannot be in the past' });
+        }
+
         // Check role-based constraints:
-        // "The staff member can only refer patients while admin can refer both patients and health care workers."
-        if (req.user.role === 'staff') {
+        // Non-admin roles can only refer patients, whereas admins can refer both patients and community health workers.
+        if (req.user.role?.toLowerCase() !== 'admin') {
             // Verify patient_id exists in users.patients table
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0) {
-                return res.status(400).json({ message: 'Access denied. Staff members can only refer patients.' });
+                return res.status(400).json({ message: 'Access denied. Only patients can be referred.' });
             }
-        } else if (req.user.role === 'admin') {
+        } else {
             // Verify patient_id exists in users.patients OR users.community_health_workers
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             const chwCheck = await pool.query('SELECT 1 FROM users.community_health_workers WHERE id = $1', [patient_id]);
@@ -148,6 +160,72 @@ router.post('/', protect, async (req, res) => {
             delete responseData.referral_key;
         }
 
+        // Trigger notifications for both the referred patient/CHW, the creator/referrer user, and destination staff
+        const createNotification = req.app.get('createNotification');
+        if (createNotification) {
+            const referrerChatId = `user_${req.user.id}`;
+            const isPatient = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]).then(r => r.rows.length > 0);
+            const patientChatId = `${isPatient ? 'patient' : 'chw'}_${patient_id}`;
+            const patientName = responseData.patient_name || 'Patient';
+            const destOrg = organization_to.trim();
+
+            // Notify creator
+            createNotification(
+                referrerChatId,
+                'Referral Logged',
+                `You successfully referred ${patientName} to "${destOrg}" (${department_to.trim()}).`
+            );
+
+            // Notify referred patient/CHW
+            createNotification(
+                patientChatId,
+                'New Referral Received',
+                `A new referral has been logged for you to "${destOrg}" (${department_to.trim()}) by ${req.user.fullname || 'your health provider'}.`
+            );
+
+            // Notify destination staff if assigned
+            if (staff_to) {
+                pool.query(
+                    "SELECT id FROM users.user_profiles WHERE LOWER(fullname) = LOWER($1) AND LOWER(role) = 'staff'",
+                    [staff_to.trim()]
+                ).then(staffResult => {
+                    if (staffResult.rows.length > 0) {
+                        const staffUserId = `user_${staffResult.rows[0].id}`;
+                        createNotification(
+                            staffUserId,
+                            'New Referral Assigned',
+                            `A new referral for ${patientName} has been assigned to you at "${destOrg}" (${department_to.trim()}) by ${req.user.fullname || 'another provider'}.`
+                        );
+                    }
+                }).catch(err => {
+                    console.error('Error notifying target referral staff:', err);
+                });
+            }
+        }
+
+        // SMS notification dispatch logic (specific to patients)
+        pool.query(
+            "SELECT fullname, phone_number, nok_fullname, nok_phone FROM users.patients WHERE id = $1",
+            [patient_id]
+        ).then(patientQuery => {
+            if (patientQuery.rows.length > 0) {
+                const patient = patientQuery.rows[0];
+                const destOrg = organization_to.trim();
+
+                // 1. Send SMS to Patient containing referral key
+                const patientSmsBody = `Hello ${patient.fullname}, a new referral has been logged for you to "${destOrg}" (${department_to.trim()}). Your verification key is: ${referral_key}.`;
+                sendSMS(patient.phone_number, patientSmsBody);
+
+                // 2. Send SMS to Next of Kin containing referral details
+                if (patient.nok_phone) {
+                    const nokSmsBody = `Hello ${patient.nok_fullname}, this is to inform you that a referral has been logged for ${patient.fullname} to "${destOrg}" (${department_to.trim()}) expected on ${new Date(arrival_date).toLocaleDateString()}.`;
+                    sendSMS(patient.nok_phone, nokSmsBody);
+                }
+            }
+        }).catch(err => {
+            console.error("Error dispatching referral SMS notifications:", err);
+        });
+
         // Return response without the key, as creator must not see the key
         return res.status(201).json({ referral: responseData });
     } catch (error) {
@@ -156,11 +234,11 @@ router.post('/', protect, async (req, res) => {
     }
 });
 
-// Update a referral (Admin and Staff only)
+// Update a referral
 router.put('/:id', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can edit referrals.' });
+        if (req.user.role?.toLowerCase() === 'patient') {
+            return res.status(403).json({ message: 'Access denied. Patients cannot edit referrals.' });
         }
 
         const { id } = req.params;
@@ -170,13 +248,24 @@ router.put('/:id', protect, async (req, res) => {
             return res.status(400).json({ message: 'All fields are required: patient_id, organization_to, department_to, reason, and arrival_date.' });
         }
 
+        const referralDateStr = arrival_date.substring(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        if (referralDateStr < todayStr) {
+            return res.status(400).json({ message: 'Referral arrival date cannot be in the past' });
+        }
+
         // Check role-based constraints
-        if (req.user.role === 'staff') {
+        if (req.user.role?.toLowerCase() !== 'admin') {
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0) {
-                return res.status(400).json({ message: 'Access denied. Staff members can only refer patients.' });
+                return res.status(400).json({ message: 'Access denied. Only patients can be referred.' });
             }
-        } else if (req.user.role === 'admin') {
+        } else {
             const patientCheck = await pool.query('SELECT 1 FROM users.patients WHERE id = $1', [patient_id]);
             const chwCheck = await pool.query('SELECT 1 FROM users.community_health_workers WHERE id = $1', [patient_id]);
             if (patientCheck.rows.length === 0 && chwCheck.rows.length === 0) {
@@ -190,6 +279,18 @@ router.put('/:id', protect, async (req, res) => {
         }
 
         const referral = referralResult.rows[0];
+
+        // A fulfilled referral cannot be edited
+        if (referral.status === 'fulfilled') {
+            return res.status(400).json({ message: 'Access denied. A fulfilled referral cannot be edited.' });
+        }
+
+        // Guard: receiver cannot edit the referral
+        const isReceiver = (req.user.organization && referral.organization_to && req.user.organization.trim().toLowerCase() === referral.organization_to.trim().toLowerCase()) ||
+                           (req.user.fullname && referral.staff_to && req.user.fullname.trim().toLowerCase() === referral.staff_to.trim().toLowerCase());
+        if (isReceiver) {
+            return res.status(403).json({ message: 'Access denied. The receiver of a referral cannot edit or delete it.' });
+        }
 
         // Authorization checks: Only the creator of the referral can edit it
         const isCreator = Number(referral.referrer_id) === Number(req.user.id);
@@ -221,11 +322,11 @@ router.put('/:id', protect, async (req, res) => {
     }
 });
 
-// Delete a referral (Admin and Staff only)
+// Delete a referral
 router.delete('/:id', protect, async (req, res) => {
     try {
-        if (!['admin', 'staff'].includes(req.user.role?.toLowerCase())) {
-            return res.status(403).json({ message: 'Access denied. Only Admins and Staff can delete referrals.' });
+        if (req.user.role?.toLowerCase() === 'patient') {
+            return res.status(403).json({ message: 'Access denied. Patients cannot delete referrals.' });
         }
 
         const { id } = req.params;
@@ -236,6 +337,13 @@ router.delete('/:id', protect, async (req, res) => {
         }
 
         const referral = referralResult.rows[0];
+
+        // Guard: receiver cannot delete the referral
+        const isReceiver = (req.user.organization && referral.organization_to && req.user.organization.trim().toLowerCase() === referral.organization_to.trim().toLowerCase()) ||
+                           (req.user.fullname && referral.staff_to && req.user.fullname.trim().toLowerCase() === referral.staff_to.trim().toLowerCase());
+        if (isReceiver) {
+            return res.status(403).json({ message: 'Access denied. The receiver of a referral cannot edit or delete it.' });
+        }
 
         // Authorization checks: Only the creator of the referral can delete it
         const isCreator = Number(referral.referrer_id) === Number(req.user.id);

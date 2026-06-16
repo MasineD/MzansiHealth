@@ -3,33 +3,12 @@ import React from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
-import { 
-  FaUserMd, 
-  FaUser, 
-  FaUsers, 
-  FaCalendarAlt, 
-  FaPrescriptionBottle, 
-  FaClipboardList, 
-  FaPlus, 
-  FaHeartbeat, 
-  FaRunning, 
-  FaTint, 
-  FaSignOutAlt, 
-  FaMedkit, 
-  FaFileMedicalAlt, 
-  FaTasks,
-  FaExchangeAlt,
-  FaStar,
-  FaComments,
-  FaClock,
-  FaHospital,
-  FaShieldAlt,
-  FaPlusCircle,
-  FaPaperPlane
+import { io } from 'socket.io-client';
+import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck
 } from 'react-icons/fa';
 
 // --- Staff Dashboard Component ---
-const StaffDashboard = ({ user, handleLogout }) => {
+const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   const menuItems = [
@@ -40,6 +19,7 @@ const StaffDashboard = ({ user, handleLogout }) => {
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'telehealth', label: 'Telehealth', icon: <FaHeartbeat /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -101,9 +81,12 @@ const StaffDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-emerald-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Dr. {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+            <header className='mb-12 pb-6 border-b border-emerald-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Dr. {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Quick Stats Grid */}
@@ -190,6 +173,8 @@ const StaffDashboard = ({ user, handleLogout }) => {
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -205,7 +190,7 @@ const StaffDashboard = ({ user, handleLogout }) => {
 };
 
 // --- Patient Dashboard Component ---
-const PatientDashboard = ({ user, handleLogout }) => {
+const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
 
   const menuItems = [
@@ -213,8 +198,9 @@ const PatientDashboard = ({ user, handleLogout }) => {
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'prescriptions', label: 'Prescriptions', icon: <FaPrescriptionBottle /> },
-    { id: 'registry', label: 'Medical Registry', icon: <FaFileMedicalAlt /> },
+    { id: 'records', label: 'Health Records', icon: <FaFileMedicalAlt /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -276,10 +262,13 @@ const PatientDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-purple-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
-              <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
+            <header className='mb-12 pb-6 border-b border-purple-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Hello, {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Identity: {user.identity?.trim()}</p>
+                <p className='text-gray-400 text-sm mt-1'>Organization: {user.organization?.trim()}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Health Metrics & Trackers */}
@@ -349,12 +338,16 @@ const PatientDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'records' ? (
+          <HealthRecordSection patientId={user.id} role='patient' />
         ) : activeTab === 'appointments' ? (
           <AppointmentsSection user={user} />
         ) : activeTab === 'referrals' ? (
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -370,16 +363,35 @@ const PatientDashboard = ({ user, handleLogout }) => {
 };
 
 // --- CHW Dashboard Component ---
-const ChwDashboard = ({ user, handleLogout }) => {
+const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [activeTab, setActiveTab] = React.useState('overview');
+  const [patients, setPatients] = React.useState([]);
+  const [loadingPatients, setLoadingPatients] = React.useState(true);
+  const [selectedPatientId, setSelectedPatientId] = React.useState(null);
+
+  React.useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setLoadingPatients(true);
+        const res = await axios.get('/api/patients');
+        setPatients(res.data.patients || []);
+      } catch (err) {
+        console.error("Failed to fetch CHW patients:", err);
+      } finally {
+        setLoadingPatients(false);
+      }
+    };
+    fetchPatients();
+  }, []);
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
-    { id: 'households', label: 'Households', icon: <FaUsers /> },
+    { id: 'households', label: 'My Patients', icon: <FaUsers /> },
     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
     { id: 'outreach', label: 'Outreach Events', icon: <FaClock /> },
     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
   ];
 
   return (
@@ -441,9 +453,12 @@ const ChwDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' ? (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-orange-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+            <header className='mb-12 pb-6 border-b border-orange-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Community Work Stats Grid */}
@@ -522,12 +537,48 @@ const ChwDashboard = ({ user, handleLogout }) => {
               </div>
             </div>
           </div>
+        ) : activeTab === 'households' ? (
+          selectedPatientId ? (
+            <HealthRecordSection patientId={selectedPatientId} role='chw' onClose={() => setSelectedPatientId(null)} />
+          ) : (
+            <div className='max-w-4xl mx-auto bg-white/5 border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-xl text-left animate-in fade-in duration-200'>
+              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+                <FaUsers className='text-orange-400' />
+                My Assigned Patients
+              </h2>
+              {loadingPatients ? (
+                <div className='text-center py-12 text-gray-500 text-sm'>Loading assigned patients...</div>
+              ) : patients.length === 0 ? (
+                <div className='text-center py-12 text-gray-500 text-sm'>No patients assigned to you.</div>
+              ) : (
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                  {patients.map(p => (
+                    <div 
+                      key={p.id} 
+                      onClick={() => setSelectedPatientId(p.id)}
+                      className='cursor-pointer bg-white/5 border border-white/5 hover:border-orange-500/25 rounded-2xl p-5 hover:bg-white/10 transition-all duration-300'
+                    >
+                      <h3 className='font-bold text-base text-orange-300'>{p.fullname}</h3>
+                      <p className='text-xs text-gray-400 mt-1'>ID: {p.identity} | {p.gender}</p>
+                      <p className='text-xs text-gray-300 mt-2 font-medium'><span className='text-gray-500'>Diagnosis:</span> {p.diagnosis}</p>
+                      <div className='flex justify-between items-center mt-4 border-t border-white/5 pt-3 text-[11px] text-gray-400'>
+                        <span>{p.phone_number}</span>
+                        <span className='text-orange-400 hover:underline font-bold'>View Clinical Files &rarr;</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         ) : activeTab === 'appointments' ? (
           <AppointmentsSection user={user} />
         ) : activeTab === 'referrals' ? (
           <ReferralsSection user={user} />
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
+        ) : activeTab === 'chat' ? (
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -546,6 +597,7 @@ const ChwDashboard = ({ user, handleLogout }) => {
 const AppointmentsSection = ({ user }) => {
   const [appointments, setAppointments] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [viewRecordPatientId, setViewRecordPatientId] = React.useState(null);
   const [organizations, setOrganizations] = React.useState([]);
   const [careGivers, setCareGivers] = React.useState([]);
   
@@ -601,12 +653,23 @@ const AppointmentsSection = ({ user }) => {
 
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
-    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date || !newAppointment.time) {
+    if (!newAppointment.organization || !newAppointment.reason || !newAppointment.date) {
       alert("Please fill in all required fields.");
       return;
     }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    if (newAppointment.date < todayStr) {
+      alert("Appointment date cannot be in the past.");
+      return;
+    }
+
     try {
-      const date_time = `${newAppointment.date}T${newAppointment.time}`;
+      const date_time = newAppointment.time ? `${newAppointment.date}T${newAppointment.time}` : `${newAppointment.date}T00:00:00`;
       const res = await axios.post('/api/appointments', {
         organization: newAppointment.organization,
         care_giver: newAppointment.care_giver || null,
@@ -678,6 +741,18 @@ const AppointmentsSection = ({ user }) => {
     }
   };
 
+  if (viewRecordPatientId) {
+    return (
+      <div className="animate-in fade-in duration-200">
+        <HealthRecordSection 
+          patientId={viewRecordPatientId} 
+          role={user.role} 
+          onClose={() => setViewRecordPatientId(null)} 
+        />
+      </div>
+    );
+  }
+
   return (
     <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
       {/* Historical Appointments list */}
@@ -703,7 +778,15 @@ const AppointmentsSection = ({ user }) => {
               const showActions = app.status === 'pending' || app.status === 'approved';
 
               return (
-                <div key={app.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+                <div 
+                  key={app.id} 
+                  onClick={() => {
+                    if (['admin', 'staff', 'chw'].includes(user.role?.toLowerCase()) && Number(app.visitor_id) !== 0) {
+                      setViewRecordPatientId(app.visitor_id);
+                    }
+                  }}
+                  className={`bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${['admin', 'staff', 'chw'].includes(user.role?.toLowerCase()) && Number(app.visitor_id) !== 0 ? 'cursor-pointer' : ''}`}
+                >
                   <div className='flex-1 pr-2 text-left'>
                     <div className='flex items-center gap-2 mb-2'>
                       <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wide ${getStatusStyle(app.status)}`}>
@@ -714,6 +797,8 @@ const AppointmentsSection = ({ user }) => {
                     <h3 className='font-bold text-sm text-violet-300'>{app.reason}</h3>
                     <p className='text-xs text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Org:</span> {app.organization}</p>
                     <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Visitor:</span> {app.visitor_name || `ID: ${app.visitor_id}`}</p>
+                    {app.contact_email && <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Email:</span> {app.contact_email}</p>}
+                    {app.contact_phone && <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Phone:</span> {app.contact_phone}</p>}
                     <p className='text-xs text-gray-400 mt-0.5'><span className='font-semibold text-gray-500'>Caregiver:</span> {app.care_giver_name || (app.care_giver ? `ID: ${app.care_giver}` : 'Not assigned')}</p>
                     {app.appointment_key && (
                       <div className='mt-3 bg-violet-500/10 border border-violet-500/20 px-3 py-2 rounded-xl text-xs flex justify-between items-center max-w-xs'>
@@ -725,7 +810,7 @@ const AppointmentsSection = ({ user }) => {
                   
                   {/* Actions column */}
                   {showActions && (
-                    <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto'>
+                    <div className='flex gap-2 shrink-0 md:flex-col w-full md:w-auto' onClick={e => e.stopPropagation()}>
                       {app.status === 'pending' && (isAdminOfOrg || isAssignedCaregiver) && (
                         <button 
                           onClick={() => handleApprove(app.id)}
@@ -742,7 +827,7 @@ const AppointmentsSection = ({ user }) => {
                           Fulfill
                         </button>
                       )}
-                      {(isCreator || isAdminOfOrg || isAssignedCaregiver) && (
+                      {app.status !== 'fulfilled' && (isCreator || isAdminOfOrg || isAssignedCaregiver) && (
                         <button 
                           onClick={() => handleCancel(app.id)}
                           className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 border border-white/10 hover:border-red-500/20 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-300'
@@ -807,13 +892,12 @@ const AppointmentsSection = ({ user }) => {
               />
             </div>
             <div>
-              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time <span className='text-red-400'>*</span></label>
+              <label className='block text-[10px] text-gray-400 mb-1 font-semibold uppercase tracking-wider'>Time</label>
               <input 
                 type="time" 
                 value={newAppointment.time} 
                 onChange={e => setNewAppointment({ ...newAppointment, time: e.target.value })} 
                 className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs' 
-                required
               />
             </div>
           </div>
@@ -1109,7 +1193,831 @@ const ReviewsSection = ({ user }) => {
   );
 };
 
-// --- Reusable Referrals Section Component ---
+
+// --- Reusable Health Record Section Component ---
+const HealthRecordSection = ({ patientId, role, onClose }) => {
+  const [data, setData] = React.useState({
+    records: [],
+    routines: [],
+    appointments: [],
+    referrals: [],
+    organizationWatermark: 'Mzansi Health',
+    patientInfo: null
+  });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  // Filters state
+  const [period, setPeriod] = React.useState('all');
+  const [includeAppointments, setIncludeAppointments] = React.useState(false);
+  const [includeReferrals, setIncludeReferrals] = React.useState(false);
+
+  // Editing / adding state
+  const [showAddRecord, setShowAddRecord] = React.useState(false);
+  const [editingRecord, setEditingRecord] = React.useState(null);
+  const [newRecordData, setNewRecordData] = React.useState({
+    blood_group: '', weight: '', height: '', temperature: '', blood_pressure: '', heart_rate: '',
+    symptoms: '', allergies: '', diagnosis: '', procedures: '', admission_date: '', release_date: '',
+    prescription: '', long_term_treatment: false, care_giver: ''
+  });
+
+  // Verification state (required for editing)
+  const [verification, setVerification] = React.useState({ patient_name: '', patient_identity: '' });
+
+  // Routine state
+  const [showAddRoutine, setShowAddRoutine] = React.useState(null); // record_id
+  const [editingRoutine, setEditingRoutine] = React.useState(null);
+  const [routineData, setRoutineData] = React.useState({
+    routine_range: 'weekly',
+    routine_day: 'Monday',
+    description: '',
+    attended: false
+  });
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await axios.get(`/api/records/${patientId}`);
+      setData(res.data);
+      if (res.data.patientInfo) {
+        setVerification({
+          patient_name: res.data.patientInfo.fullname,
+          patient_identity: ''
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to load health records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (patientId) {
+      fetchData();
+    }
+  }, [patientId]);
+
+  const getThemeColors = () => {
+    switch (role?.toLowerCase()) {
+      case 'patient':
+        return {
+          accent: 'text-purple-400',
+          bgAccent: 'bg-purple-500',
+          hoverBg: 'hover:bg-purple-600',
+          borderAccent: 'border-purple-500/20',
+          shadow: 'shadow-purple-500/25',
+          btnBg: 'bg-purple-500 text-black',
+        };
+      case 'staff':
+        return {
+          accent: 'text-emerald-400',
+          bgAccent: 'bg-emerald-500',
+          hoverBg: 'hover:bg-emerald-600',
+          borderAccent: 'border-emerald-500/20',
+          shadow: 'shadow-emerald-500/25',
+          btnBg: 'bg-emerald-500 text-black',
+        };
+      case 'chw':
+        return {
+          accent: 'text-orange-400',
+          bgAccent: 'bg-orange-500',
+          hoverBg: 'hover:bg-orange-600',
+          borderAccent: 'border-orange-500/20',
+          shadow: 'shadow-orange-500/25',
+          btnBg: 'bg-orange-500 text-black',
+        };
+      default: // admin
+        return {
+          accent: 'text-violet-400',
+          bgAccent: 'bg-violet-500',
+          hoverBg: 'hover:bg-violet-600',
+          borderAccent: 'border-violet-500/20',
+          shadow: 'shadow-violet-500/25',
+          btnBg: 'bg-violet-500 text-black',
+        };
+    }
+  };
+  const theme = getThemeColors();
+
+  const filterByPeriod = (items, dateField, selectedPeriod) => {
+    if (selectedPeriod === 'all') return items;
+    const days = selectedPeriod === '1month' ? 30 : 90;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return items.filter(item => {
+      const d = new Date(item[dateField]);
+      return d >= cutoff;
+    });
+  };
+
+  const addWatermark = (doc, text) => {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setTextColor(240, 240, 240);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(65);
+      doc.text(text.toUpperCase(), 15, 270, { angle: 53 });
+    }
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const watermarkText = data.organizationWatermark || 'Mzansi Health';
+    
+    const filteredRecords = filterByPeriod(data.records, 'admission_date', period);
+    const filteredRoutines = filterByPeriod(data.routines, 'date', period);
+    const filteredAppointments = includeAppointments ? filterByPeriod(data.appointments, 'date_time', period) : [];
+    const filteredReferrals = includeReferrals ? filterByPeriod(data.referrals, 'created_at', period) : [];
+
+    let y = 20;
+
+    // Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(31, 41, 55);
+    doc.text("UBUNTU HEALTH - CLINICAL REPORT", 14, y);
+    y += 10;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Generated on: ${new Date().toLocaleString()} | Filter: ${period === 'all' ? 'All Time' : period === '1month' ? 'Last 30 Days' : 'Last 90 Days'}`, 14, y);
+    y += 15;
+
+    // Patient info box
+    doc.setFillColor(243, 244, 246);
+    doc.rect(14, y, 182, 35, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(17, 24, 39);
+    doc.text("PATIENT RECORD SUMMARY", 18, y + 6);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Full Name: ${data.patientInfo?.fullname || 'N/A'}`, 18, y + 14);
+    doc.text(`Identity Number: ${data.patientInfo?.identity || 'N/A'}`, 18, y + 20);
+    doc.text(`Gender: ${data.patientInfo?.gender || 'N/A'}`, 18, y + 26);
+    doc.text(`Primary Diagnosis: ${data.patientInfo?.diagnosis || 'N/A'}`, 100, y + 14);
+    doc.text(`Contact: ${data.patientInfo?.phone_number || 'N/A'}`, 100, y + 20);
+    doc.text(`Registered At: ${data.organizationWatermark}`, 100, y + 26);
+    y += 45;
+
+    // Health Records Section
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(31, 41, 55);
+    doc.text("1. Health Logs", 14, y);
+    y += 8;
+
+    if (filteredRecords.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(10);
+      doc.text("No health logs found for the selected period.", 14, y);
+      y += 10;
+    } else {
+      filteredRecords.forEach((record, index) => {
+        if (y > 230) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(79, 70, 229);
+        doc.text(`Log #${filteredRecords.length - index} - Admitted: ${new Date(record.admission_date).toLocaleDateString()}`, 14, y);
+        y += 5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(55, 65, 81);
+        doc.text(`Blood Group: ${record.blood_group || 'N/A'} | Weight: ${record.weight ? record.weight+' kg' : 'N/A'} | Height: ${record.height ? record.height+' cm' : 'N/A'} | Temp: ${record.temperature ? record.temperature+' °C' : 'N/A'}`, 14, y);
+        y += 5;
+        doc.text(`Blood Pressure: ${record.blood_pressure || 'N/A'} mmHg | Heart Rate: ${record.heart_rate ? record.heart_rate+' bpm' : 'N/A'}`, 14, y);
+        y += 5;
+        doc.text(`Symptoms: ${record.symptoms || 'None'}`, 14, y);
+        y += 5;
+        doc.text(`Diagnosis: ${record.diagnosis || 'None'}`, 14, y);
+        y += 5;
+        doc.text(`Prescription: ${record.prescription || 'None'}`, 14, y);
+        y += 5;
+        doc.text(`Caregiver: ${record.care_giver || 'Unassigned'}`, 14, y);
+        y += 10;
+      });
+    }
+
+    // Routines Section
+    if (y > 230) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(31, 41, 55);
+    doc.text("2. Routine Monitoring Schedules", 14, y);
+    y += 8;
+
+    if (filteredRoutines.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(10);
+      doc.text("No routine tasks scheduled.", 14, y);
+      y += 10;
+    } else {
+      filteredRoutines.forEach((routine) => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(31, 41, 55);
+        doc.text(`Routine Date: ${new Date(routine.date).toLocaleDateString()}`, 14, y);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Range: ${routine.routine_range} | Day Config: ${routine.routine_day} | Status: ${routine.attended ? 'Attended' : 'Pending'}`, 80, y);
+        y += 5;
+        doc.text(`Description: ${routine.description}`, 14, y);
+        y += 8;
+      });
+    }
+
+    // Optional Appointments
+    if (includeAppointments) {
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(31, 41, 55);
+      doc.text("3. Appointments Logs", 14, y);
+      y += 8;
+
+      if (filteredAppointments.length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.text("No appointments found for this period.", 14, y);
+        y += 10;
+      } else {
+        filteredAppointments.forEach(app => {
+          if (y > 250) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.text(`${new Date(app.date_time).toLocaleString()} - ${app.status.toUpperCase()}`, 14, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Reason: ${app.reason} | Key: ${app.appointment_key || 'N/A'}`, 14, y + 5);
+          y += 10;
+        });
+      }
+    }
+
+    // Optional Referrals
+    if (includeReferrals) {
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(31, 41, 55);
+      doc.text("4. Referral Logs", 14, y);
+      y += 8;
+
+      if (filteredReferrals.length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.text("No referrals found for this period.", 14, y);
+        y += 10;
+      } else {
+        filteredReferrals.forEach(ref => {
+          if (y > 250) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.text(`${new Date(ref.created_at).toLocaleDateString()} - ${ref.status.toUpperCase()}`, 14, y);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`To: ${ref.organization_to} | Key: ${ref.referral_key || 'N/A'}`, 14, y + 5);
+          y += 10;
+        });
+      }
+    }
+
+    addWatermark(doc, watermarkText);
+    doc.save(`clinical_report_${data.patientInfo?.fullname.replace(/\s+/g, '_') || 'patient'}.pdf`);
+  };
+
+  const handleSaveRecord = async (e) => {
+    e.preventDefault();
+    if (!verification.patient_name || !verification.patient_identity) {
+      alert("Verification required: Please provide patient name and ID number.");
+      return;
+    }
+
+    try {
+      const payload = {
+        ...newRecordData,
+        patient_name: verification.patient_name,
+        patient_identity: verification.patient_identity
+      };
+
+      if (editingRecord) {
+        await axios.put(`/api/records/${editingRecord.id}`, payload);
+        alert("Health record updated successfully!");
+        setEditingRecord(null);
+      } else {
+        await axios.post(`/api/records/${patientId}`, payload);
+        alert("Health record created successfully!");
+        setShowAddRecord(false);
+      }
+      fetchData();
+      setNewRecordData({
+        blood_group: '', weight: '', height: '', temperature: '', blood_pressure: '', heart_rate: '',
+        symptoms: '', allergies: '', diagnosis: '', procedures: '', admission_date: '', release_date: '',
+        prescription: '', long_term_treatment: false, care_giver: ''
+      });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to save health record.");
+    }
+  };
+
+  const handleSaveRoutine = async (e) => {
+    e.preventDefault();
+    try {
+      let payload = { ...routineData };
+
+      // If marking as attended, ask for identity
+      if (routineData.attended && (!editingRoutine || !editingRoutine.attended)) {
+        const patientIdentityInput = prompt("Please enter the patient's identity number manually to mark this routine as attended:");
+        if (patientIdentityInput === null) return;
+        if (!patientIdentityInput.trim()) {
+          alert("Verification required: Patient identity number cannot be empty.");
+          return;
+        }
+        payload.patient_identity = patientIdentityInput.trim();
+      }
+
+      if (editingRoutine) {
+        await axios.put(`/api/records/routines/${editingRoutine.id}`, payload);
+        alert("Routine updated successfully!");
+        setEditingRoutine(null);
+      } else {
+        await axios.post('/api/records/routines', {
+          ...payload,
+          record_id: showAddRoutine
+        });
+        alert("Routine created successfully!");
+        setShowAddRoutine(null);
+      }
+      fetchData();
+      setRoutineData({
+        routine_range: 'weekly',
+        routine_day: 'Monday',
+        description: '',
+        attended: false
+      });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to save routine.");
+    }
+  };
+
+  const handleToggleRoutineAttendance = async (routine) => {
+    if (routine.attended) return;
+
+    const patientIdentityInput = prompt("Please enter the patient's identity number manually to mark this routine as attended:");
+    if (patientIdentityInput === null) return;
+    if (!patientIdentityInput.trim()) {
+      alert("Verification required: Patient identity number cannot be empty.");
+      return;
+    }
+
+    try {
+      await axios.put(`/api/records/routines/${routine.id}`, {
+        routine_range: routine.routine_range,
+        routine_day: routine.routine_day,
+        description: routine.description,
+        attended: true,
+        patient_identity: patientIdentityInput.trim()
+      });
+      alert("Routine marked as attended successfully!");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to update routine status.");
+    }
+  };
+
+  const startEditRecord = (record) => {
+    setEditingRecord(record);
+    setVerification({
+      patient_name: data.patientInfo?.fullname || '',
+      patient_identity: ''
+    });
+    setNewRecordData({
+      blood_group: record.blood_group || '',
+      weight: record.weight || '',
+      height: record.height || '',
+      temperature: record.temperature || '',
+      blood_pressure: record.blood_pressure || '',
+      heart_rate: record.heart_rate || '',
+      symptoms: record.symptoms || '',
+      allergies: record.allergies || '',
+      diagnosis: record.diagnosis || '',
+      procedures: record.procedures || '',
+      admission_date: record.admission_date ? new Date(record.admission_date).toISOString().substring(0, 16) : '',
+      release_date: record.release_date ? new Date(record.release_date).toISOString().substring(0, 16) : '',
+      prescription: record.prescription || '',
+      long_term_treatment: record.long_term_treatment || false,
+      care_giver: record.care_giver || ''
+    });
+  };
+
+  const startEditRoutine = (routine) => {
+    if (routine.attended) {
+      alert("After a routine is marked as attended, it can no longer be edited.");
+      return;
+    }
+    setEditingRoutine(routine);
+    setRoutineData({
+      routine_range: routine.routine_range || 'weekly',
+      routine_day: routine.routine_day || 'Monday',
+      description: routine.description || '',
+      attended: routine.attended || false
+    });
+  };
+
+  const filteredRecords = filterByPeriod(data.records, 'admission_date', period);
+  const filteredRoutines = filterByPeriod(data.routines, 'date', period);
+
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const monthDays = Array.from({ length: 28 }, (_, i) => (i + 1).toString());
+
+  if (loading) return <div className="text-center py-12 text-gray-400">Loading Clinical Records...</div>;
+  if (error) return <div className="text-center py-12 text-red-400">{error}</div>;
+
+  const isPatient = role?.toLowerCase() === 'patient';
+
+  return (
+    <div className="bg-white/5 border border-white/10 rounded-3xl p-6 md:p-8 backdrop-blur-xl space-y-8 text-left max-w-6xl mx-auto relative animate-in fade-in zoom-in duration-200">
+      {onClose && (
+        <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer">
+          ✕ Close
+        </button>
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-white/5 pb-6 gap-4">
+        <div>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${isPatient ? 'bg-purple-500/20 text-purple-400' : 'bg-violet-500/20 text-violet-400'}`}>
+            Clinical Records Profile
+          </span>
+          <h2 className="text-2xl font-black text-white mt-2">
+            {data.patientInfo?.fullname || 'Patient File'}
+          </h2>
+          <p className="text-xs text-gray-400 mt-1">
+            Registered Facility: <span className={theme.accent}>{data.organizationWatermark}</span>
+          </p>
+        </div>
+
+        {isPatient && (
+          <button onClick={generatePDF} className={`cursor-pointer flex items-center gap-2 ${theme.btnBg} ${theme.hoverBg} px-5 py-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all duration-300 hover:scale-105 shadow-lg ${theme.shadow}`}>
+            Download Clinical PDF
+          </button>
+        )}
+      </div>
+
+      {/* Filter and Configuration Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-black/40 border border-white/5 rounded-2xl p-5">
+        <div>
+          <label className="block text-[10px] text-gray-400 mb-2 font-bold uppercase tracking-wider">Report Range</label>
+          <select value={period} onChange={e => setPeriod(e.target.value)} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-violet-500">
+            <option value="all">All Time Records</option>
+            <option value="1month">Last 30 Days</option>
+            <option value="3months">Last 90 Days</option>
+          </select>
+        </div>
+
+        {isPatient && (
+          <div className="md:col-span-2 flex flex-row items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 select-none">
+              <input type="checkbox" checked={includeAppointments} onChange={e => setIncludeAppointments(e.target.checked)} className="rounded bg-black border-white/10 text-purple-500 focus:ring-purple-500 w-4 h-4" />
+              Include Appointment Logs
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 select-none">
+              <input type="checkbox" checked={includeReferrals} onChange={e => setIncludeReferrals(e.target.checked)} className="rounded bg-black border-white/10 text-purple-500 focus:ring-purple-500 w-4 h-4" />
+              Include Referral Logs
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Write / Edit Record Panel */}
+      {!isPatient && (showAddRecord || editingRecord) && (
+        <form onSubmit={handleSaveRecord} className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+          <h3 className="font-extrabold text-sm text-white border-b border-white/5 pb-2">
+            {editingRecord ? "Edit Clinical Record Entry" : "Create New Clinical Record Entry"}
+          </h3>
+
+          {/* Verification section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+            <div className="md:col-span-2">
+              <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Database Lock Verification</h4>
+              <p className="text-[10px] text-gray-400 mt-0.5">Please confirm the patient's name and ID number to unlock and save modifications.</p>
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient Full Name <span className="text-red-400">*</span></label>
+              <input type="text" value={verification.patient_name} onChange={e => setVerification({...verification, patient_name: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient ID Number <span className="text-red-400">*</span></label>
+              <input type="text" value={verification.patient_identity} onChange={e => setVerification({...verification, patient_identity: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+            </div>
+          </div>
+
+          {/* Form Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Blood Group</label>
+              <input type="text" placeholder="e.g. O+" value={newRecordData.blood_group} onChange={e => setNewRecordData({...newRecordData, blood_group: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Weight (kg)</label>
+              <input type="number" step="0.1" value={newRecordData.weight} onChange={e => setNewRecordData({...newRecordData, weight: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Height (cm)</label>
+              <input type="number" step="0.1" value={newRecordData.height} onChange={e => setNewRecordData({...newRecordData, height: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Temp (°C)</label>
+              <input type="number" step="0.1" value={newRecordData.temperature} onChange={e => setNewRecordData({...newRecordData, temperature: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">BP (mmHg)</label>
+              <input type="text" placeholder="e.g. 120/80" value={newRecordData.blood_pressure} onChange={e => setNewRecordData({...newRecordData, blood_pressure: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Heart Rate (bpm)</label>
+              <input type="number" value={newRecordData.heart_rate} onChange={e => setNewRecordData({...newRecordData, heart_rate: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Admission Date</label>
+              <input type="datetime-local" value={newRecordData.admission_date} onChange={e => setNewRecordData({...newRecordData, admission_date: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Release Date</label>
+              <input type="datetime-local" value={newRecordData.release_date} onChange={e => setNewRecordData({...newRecordData, release_date: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+            </div>
+          </div>
+
+          {/* Texts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Symptoms</label>
+              <textarea value={newRecordData.symptoms} onChange={e => setNewRecordData({...newRecordData, symptoms: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs h-16 resize-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Allergies</label>
+              <textarea value={newRecordData.allergies} onChange={e => setNewRecordData({...newRecordData, allergies: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs h-16 resize-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Diagnosis</label>
+              <textarea value={newRecordData.diagnosis} onChange={e => setNewRecordData({...newRecordData, diagnosis: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs h-16 resize-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Procedures Done</label>
+              <textarea value={newRecordData.procedures} onChange={e => setNewRecordData({...newRecordData, procedures: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs h-16 resize-none" />
+            </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 mb-1">Prescription Details</label>
+              <textarea value={newRecordData.prescription} onChange={e => setNewRecordData({...newRecordData, prescription: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs h-16 resize-none" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] text-gray-400 mb-1">Attending Caregiver</label>
+                <input type="text" value={newRecordData.care_giver} onChange={e => setNewRecordData({...newRecordData, care_giver: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                <input type="checkbox" checked={newRecordData.long_term_treatment} onChange={e => setNewRecordData({...newRecordData, long_term_treatment: e.target.checked})} className="rounded bg-black border-white/10 text-violet-500 focus:ring-violet-500 w-4 h-4" />
+                Under Long Term Treatment
+              </label>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => { setShowAddRecord(false); setEditingRecord(null); }} className="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-xs font-semibold">Cancel</button>
+            <button type="submit" className={`${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl text-xs font-bold`}>Save Record</button>
+          </div>
+        </form>
+      )}
+
+      {/* Clinical Logs Tab */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <FaClipboardList className={theme.accent} />
+            Clinical Records Log
+          </h3>
+          {!isPatient && !showAddRecord && !editingRecord && (
+            <button onClick={() => { setShowAddRecord(true); setEditingRecord(null); setVerification(prev => ({ ...prev, patient_identity: '' })); }} className={`cursor-pointer flex items-center gap-1.5 text-xs ${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-105`}>
+              <FaPlus size={10} /> Add record
+            </button>
+          )}
+        </div>
+
+        {filteredRecords.length === 0 ? (
+          <div className="text-center py-10 text-gray-500 border border-dashed border-white/10 rounded-2xl text-sm">
+            No clinical records logged for the selected report range.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {filteredRecords.map((record) => {
+              const recordRoutines = data.routines.filter(r => r.record_id === record.id);
+              return (
+                <div key={record.id} className="bg-white/5 border border-white/5 rounded-2xl p-6 space-y-6 hover:border-white/10 transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/5 pb-4 gap-2">
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-200">
+                        Log Entry — Admitted: {new Date(record.admission_date).toLocaleDateString()}
+                      </h4>
+                      {record.release_date && (
+                        <p className="text-[10px] text-gray-400 mt-0.5">Released: {new Date(record.release_date).toLocaleDateString()}</p>
+                      )}
+                    </div>
+                    {!isPatient && (
+                      <button onClick={() => startEditRecord(record)} className="text-xs text-violet-400 hover:text-violet-300 font-bold bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+                        Edit Entry
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Vitals Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-black/20 rounded-xl p-4">
+                    {[
+                      { label: 'Blood Group', val: record.blood_group },
+                      { label: 'Weight', val: record.weight ? record.weight+' kg' : null },
+                      { label: 'Height', val: record.height ? record.height+' cm' : null },
+                      { label: 'Temperature', val: record.temperature ? record.temperature+' °C' : null },
+                      { label: 'Blood Pressure', val: record.blood_pressure ? record.blood_pressure+' mmHg' : null },
+                      { label: 'Heart Rate', val: record.heart_rate ? record.heart_rate+' bpm' : null },
+                      { label: 'Long Term Treatment', val: record.long_term_treatment ? 'Yes' : 'No' },
+                      { label: 'Caregiver', val: record.care_giver }
+                    ].map((vit, idx) => (
+                      <div key={idx} className="text-left">
+                        <span className="block text-[9px] text-gray-400 uppercase tracking-wider font-semibold">{vit.label}</span>
+                        <span className="font-bold text-xs text-white mt-1 block">{vit.val || 'N/A'}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Diagnosis & Prescriptions details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    {record.symptoms && (
+                      <div className="bg-white/5 p-3.5 rounded-xl">
+                        <span className="block text-[9px] text-gray-400 uppercase tracking-wider font-semibold mb-1">Symptoms Logged</span>
+                        <p className="text-gray-200">{record.symptoms}</p>
+                      </div>
+                    )}
+                    {record.allergies && (
+                      <div className="bg-white/5 p-3.5 rounded-xl border border-red-500/15">
+                        <span className="block text-[9px] text-red-400 uppercase tracking-wider font-semibold mb-1">Allergies/Contraindications</span>
+                        <p className="text-gray-200">{record.allergies}</p>
+                      </div>
+                    )}
+                    {record.diagnosis && (
+                      <div className="bg-white/5 p-3.5 rounded-xl">
+                        <span className="block text-[9px] text-gray-400 uppercase tracking-wider font-semibold mb-1">Diagnosis</span>
+                        <p className="text-gray-200">{record.diagnosis}</p>
+                      </div>
+                    )}
+                    {record.procedures && (
+                      <div className="bg-white/5 p-3.5 rounded-xl">
+                        <span className="block text-[9px] text-gray-400 uppercase tracking-wider font-semibold mb-1">Procedures Conducted</span>
+                        <p className="text-gray-200">{record.procedures}</p>
+                      </div>
+                    )}
+                    {record.prescription && (
+                      <div className="md:col-span-2 bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl">
+                        <span className="block text-[9px] text-emerald-400 uppercase tracking-wider font-semibold mb-1">Prescription details</span>
+                        <p className="text-gray-200 font-medium">{record.prescription}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Record's Routines */}
+                  <div className="space-y-3 pt-2 border-t border-white/5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-gray-300">Routines for this Log</span>
+                      {!isPatient && (
+                        <button type="button" onClick={() => { setShowAddRoutine(record.id); setEditingRoutine(null); }} className="text-[10px] text-violet-400 font-bold bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5 hover:bg-white/10">
+                          + Add Routine
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Add/Edit Routine inline form */}
+                    {!isPatient && (showAddRoutine === record.id || (editingRoutine && recordRoutines.some(r => r.id === editingRoutine.id))) && (
+                      <form onSubmit={handleSaveRoutine} className="bg-black/30 border border-white/10 rounded-xl p-4 space-y-4">
+                        <h5 className="text-[10px] font-bold text-white uppercase tracking-wider">
+                          {editingRoutine ? "Edit Routine Task" : "Create Routine Task"}
+                        </h5>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[9px] text-gray-400 mb-1">Range Type</label>
+                            <select value={routineData.routine_range} onChange={e => setRoutineData({...routineData, routine_range: e.target.value})} className="w-full px-2 py-1.5 bg-slate-900 border border-white/10 rounded-lg text-xs">
+                              <option value="weekly">Weekly Range</option>
+                              <option value="monthly">Monthly Range</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[9px] text-gray-400 mb-1">Scheduled Day</label>
+                            <select value={routineData.routine_day} onChange={e => setRoutineData({...routineData, routine_day: e.target.value})} className="w-full px-2 py-1.5 bg-slate-900 border border-white/10 rounded-lg text-xs">
+                              {routineData.routine_range === 'weekly' ? (
+                                weekDays.map(wd => <option key={wd} value={wd}>{wd}</option>)
+                              ) : (
+                                monthDays.map(md => <option key={md} value={md}>Day {md}</option>)
+                              )}
+                            </select>
+                          </div>
+                          <div className="flex items-end">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300 mb-2">
+                              <input type="checkbox" checked={routineData.attended} onChange={e => setRoutineData({...routineData, attended: e.target.checked})} className="rounded bg-black border-white/10 text-violet-500 focus:ring-violet-500 w-4 h-4" />
+                              Attended Status
+                            </label>
+                          </div>
+                          <div className="sm:col-span-3">
+                            <label className="block text-[9px] text-gray-400 mb-1">Routine Description</label>
+                            <input type="text" placeholder="e.g. Daily glucose check, or Weekly blood test follow up" value={routineData.description} onChange={e => setRoutineData({...routineData, description: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2 text-[10px]">
+                          <button type="button" onClick={() => { setShowAddRoutine(null); setEditingRoutine(null); }} className="bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg border border-white/5">Cancel</button>
+                          <button type="submit" className="bg-violet-500 text-black font-bold px-3 py-1.5 rounded-lg">Save Routine</button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Routines List */}
+                    {recordRoutines.length === 0 ? (
+                      <p className="text-[11px] text-gray-500 italic">No scheduled routines registered under this log.</p>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {recordRoutines.map(routine => (
+                          <div key={routine.id} className="bg-black/15 border border-white/5 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="text-left">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${routine.routine_range === 'weekly' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-fuchsia-500/20 text-fuchsia-400'}`}>
+                                  {routine.routine_range}
+                                </span>
+                                <span className="text-[10px] text-gray-400 font-semibold">Day: {routine.routine_day} | Calculated Occurence: {new Date(routine.date).toLocaleDateString()}</span>
+                              </div>
+                              <p className="text-xs text-gray-200 mt-1">{routine.description}</p>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button 
+                                disabled={routine.attended}
+                                onClick={() => handleToggleRoutineAttendance(routine)} 
+                                className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all duration-300 ${
+                                  routine.attended 
+                                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-not-allowed opacity-80' 
+                                    : 'bg-white/5 text-gray-400 border-white/10 hover:border-violet-500/20 hover:text-violet-400 cursor-pointer'
+                                }`}
+                              >
+                                {routine.attended ? 'Attended' : 'Mark Attended'}
+                              </button>
+                              {!isPatient && !routine.attended && (
+                                <button onClick={() => startEditRoutine(routine)} className="text-[10px] font-semibold text-gray-400 hover:text-white bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg">
+                                  Edit
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Reusable Referrals Section Component ---
 const ReferralsSection = ({ user }) => {
   const [referrals, setReferrals] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1117,6 +2025,8 @@ const ReferralsSection = ({ user }) => {
   const [chws, setChws] = React.useState([]);
   const [organizations, setOrganizations] = React.useState([]);
   const [selectedReferral, setSelectedReferral] = React.useState(null);
+  const [choiceReferral, setChoiceReferral] = React.useState(null);
+  const [viewRecordPatientId, setViewRecordPatientId] = React.useState(null);
   
   // Dynamic staff members for selected destination organization
   const [staffList, setStaffList] = React.useState([]);
@@ -1196,7 +2106,7 @@ const ReferralsSection = ({ user }) => {
   };
 
   const colors = getRoleColors(user.role);
-  const canManage = ['admin', 'staff'].includes(user.role?.toLowerCase());
+  const canManage = user.role?.toLowerCase() !== 'patient';
 
   const fetchReferrals = async () => {
     try {
@@ -1290,6 +2200,17 @@ const ReferralsSection = ({ user }) => {
       return;
     }
 
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const referralDateStr = newReferral.arrival_date.substring(0, 10);
+    if (referralDateStr < todayStr) {
+      alert("Referral arrival date cannot be in the past.");
+      return;
+    }
+
     try {
       await axios.post('/api/referrals', {
         patient_id: newReferral.patient_id,
@@ -1340,6 +2261,17 @@ const ReferralsSection = ({ user }) => {
     
     if (!editForm.patient_id || !editForm.organization_to || !finalDepartment || !editForm.reason || !editForm.arrival_date) {
       alert("Please fill in all required fields.");
+      return;
+    }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const referralDateStr = editForm.arrival_date.substring(0, 10);
+    if (referralDateStr < todayStr) {
+      alert("Referral arrival date cannot be in the past.");
       return;
     }
 
@@ -1408,9 +2340,8 @@ const ReferralsSection = ({ user }) => {
       // 1. Watermark with the organization_from name (diagonal text from bottom left to top right)
       doc.setTextColor(243, 244, 246); // Very light grey (slate-50 equivalent)
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(54);
-      // Center watermarks diagonally (315 degrees is counter-clockwise rotation, drawing from bottom-left to top-right)
-      doc.text(orgFrom.toUpperCase(), 105, 150, { align: 'center', angle: 315 });
+      doc.setFontSize(65);
+      doc.text(orgFrom.toUpperCase(), 15, 270, { angle: 53 });
 
       // 2. Document Header / Title
       doc.setTextColor(30, 41, 59); // Slate 800
@@ -1493,6 +2424,18 @@ const ReferralsSection = ({ user }) => {
     }
   };
 
+  if (viewRecordPatientId) {
+    return (
+      <div className="animate-in fade-in duration-200">
+        <HealthRecordSection 
+          patientId={viewRecordPatientId} 
+          role={user.role} 
+          onClose={() => setViewRecordPatientId(null)} 
+        />
+      </div>
+    );
+  }
+
   return (
     <div className='max-w-6xl mx-auto'>
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
@@ -1512,14 +2455,23 @@ const ReferralsSection = ({ user }) => {
             </div>
           ) : (
             <div className='space-y-4 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar text-left'>
-              {referrals.map(ref => (
-                <div 
-                  key={ref.id} 
-                  className={`bg-white/5 border border-white/5 hover:${colors.border} rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4`}
-                >
+              {referrals.map(ref => {
+                const isReceiver = (user.organization && ref.organization_to && user.organization.trim().toLowerCase() === ref.organization_to.trim().toLowerCase()) ||
+                                   (user.fullname && ref.staff_to && user.fullname.trim().toLowerCase() === ref.staff_to.trim().toLowerCase());
+                return (
+                  <div 
+                    key={ref.id} 
+                    className={`bg-white/5 border border-white/5 hover:${colors.border} rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4`}
+                  >
                   {/* Clickable details area */}
                   <div 
-                    onClick={() => setSelectedReferral(ref)}
+                    onClick={() => {
+                      if (canManage) {
+                        setChoiceReferral(ref);
+                      } else {
+                        setSelectedReferral(ref);
+                      }
+                    }}
                     className='flex-1 cursor-pointer pr-2'
                   >
                     <div className='flex items-center gap-2 mb-2'>
@@ -1563,14 +2515,16 @@ const ReferralsSection = ({ user }) => {
                             Fulfill
                           </button>
                         )}
-                        {Number(ref.referrer_id) === Number(user.id) && (
+                        {Number(ref.referrer_id) === Number(user.id) && !isReceiver && (
                           <>
-                            <button 
-                              onClick={() => handleStartEdit(ref)}
-                              className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
-                            >
-                              Edit
-                            </button>
+                            {ref.status !== 'fulfilled' && (
+                              <button 
+                                onClick={() => handleStartEdit(ref)}
+                                className='cursor-pointer flex-1 md:flex-initial bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-white/10 transition-all duration-300'
+                              >
+                                Edit
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleDeleteReferral(ref.id)}
                               className='cursor-pointer flex-1 md:flex-initial bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-300'
@@ -1582,8 +2536,9 @@ const ReferralsSection = ({ user }) => {
                       </>
                     )}
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1954,7 +2909,7 @@ const ReferralsSection = ({ user }) => {
               >
                 Download Ticket
               </button>
-              {canManage && selectedReferral.status !== 'fulfilled' && (
+              {['admin', 'staff'].includes(user.role?.toLowerCase()) && selectedReferral.status !== 'fulfilled' && (
                 <button 
                   onClick={() => handleFulfillReferral(selectedReferral.id)}
                   className='cursor-pointer flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.01]'
@@ -1972,12 +2927,47 @@ const ReferralsSection = ({ user }) => {
           </div>
         </div>
       )}
+      {/* Choice Modal for Admin/Staff */}
+      {choiceReferral && (
+        <div className='fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-all duration-300'>
+          <div className='bg-[#0c0f13] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 relative animate-in fade-in zoom-in duration-200 text-center text-white'>
+            <h3 className='text-base font-black tracking-tight text-white mb-2'>Select Action</h3>
+            <p className='text-xs text-gray-400 mb-6'>Choose how you want to interact with referral for {choiceReferral.patient_name || choiceReferral.patient_id}</p>
+            <div className='space-y-3'>
+              <button 
+                onClick={() => {
+                  setViewRecordPatientId(choiceReferral.patient_id);
+                  setChoiceReferral(null);
+                }}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold ${colors.primaryBg} text-black ${colors.primaryHover} transition-all duration-300 hover:scale-[1.02]`}
+              >
+                View Patient Health Record
+              </button>
+              <button 
+                onClick={() => {
+                  setSelectedReferral(choiceReferral);
+                  setChoiceReferral(null);
+                }}
+                className='w-full py-2.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-[1.02]'
+              >
+                View Referral Ticket Details
+              </button>
+              <button 
+                onClick={() => setChoiceReferral(null)}
+                className='w-full py-2.5 rounded-xl text-xs font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all duration-300'
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 // --- Admin Dashboard Component ---
-const AdminDashboard = ({ user, handleLogout }) => {
+const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
   const [users, setUsers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
@@ -1986,6 +2976,11 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
   // --- Patients Database ---
   const [patients, setPatients] = React.useState([]);
+  const [selectedPatientId, setSelectedPatientId] = React.useState(null);
+
+  React.useEffect(() => {
+    setSelectedPatientId(null);
+  }, [activeTab]);
 
 
   const [chws, setChws] = React.useState([
@@ -2011,9 +3006,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
   // Reviews state removed to use database reviews in ReviewsSection
 
-  const [chatMessages, setChatMessages] = React.useState([
-    { id: 1, sender: "System", recipient: "All", message: "Welcome to the UbuntuHealth Admin Chat Room. Select a target group or contact to start.", timestamp: "16:00" }
-  ]);
+
 
   // --- Form Input States ---
   const [newPatient, setNewPatient] = React.useState({
@@ -2030,7 +3023,8 @@ const AdminDashboard = ({ user, handleLogout }) => {
     city: '',
     nok_fullname: '',
     nok_phone: '',
-    nok_email: ''
+    nok_email: '',
+    chw_id: ''
   });
   const [newChw, setNewChw] = React.useState({
     employee_id: '',
@@ -2044,8 +3038,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
   const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
   // newReview state removed to use database reviews in ReviewsSection
   
-  const [chatTarget, setChatTarget] = React.useState('patients'); // 'patients', 'chws', 'staff', or specific name
-  const [chatInput, setChatInput] = React.useState('');
+
 
   const [selectedChwId, setSelectedChwId] = React.useState(1);
 
@@ -2114,7 +3107,8 @@ const AdminDashboard = ({ user, handleLogout }) => {
         city: '',
         nok_fullname: '',
         nok_phone: '',
-        nok_email: ''
+        nok_email: '',
+        chw_id: ''
       });
       alert("Patient registered successfully!");
     } catch (err) {
@@ -2193,19 +3187,7 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
   // handleCreateReview removed to use database reviews in ReviewsSection
 
-  const handleSendChatMessage = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    const newMessage = {
-      id: chatMessages.length + 1,
-      sender: "Admin (" + user.fullname + ")",
-      recipient: chatTarget,
-      message: chatInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setChatMessages([...chatMessages, newMessage]);
-    setChatInput('');
-  };
+
 
   const handleStaffAvailability = (id, newAvailability) => {
     const updatedStaff = staff.map(s => {
@@ -2288,9 +3270,12 @@ const AdminDashboard = ({ user, handleLogout }) => {
         {activeTab === 'overview' && (
           <div className='max-w-6xl mx-auto'>
             {/* Header */}
-            <header className='mb-12 pb-6 border-b border-violet-500/20'>
-              <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Admin {user.fullname}</h1>
-              <p className='text-gray-400 text-sm mt-1'>Org: {user.organization || 'Cape Town Clinic'}</p>
+            <header className='mb-12 pb-6 border-b border-violet-500/20 flex justify-between items-center'>
+              <div>
+                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Admin {user.fullname}</h1>
+                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization || 'Cape Town Clinic'}</p>
+              </div>
+              <NotificationPanel notifications={notifications} socket={socket} />
             </header>
 
             {/* Quick Stats Grid */}
@@ -2369,237 +3354,262 @@ const AdminDashboard = ({ user, handleLogout }) => {
           </div>
         )}
 
-        {/* --- Patients Section --- */}
+         {/* --- Patients Section --- */}
         {activeTab === 'patients' && (
-          <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
-            <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
-              <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
-                <FaUsers className='text-violet-400' />
-                Patients for {user.organization || 'Cape Town Clinic'}
-              </h2>
-              <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
-                {patients.length === 0 ? (
-                  <div className='text-center py-12 text-gray-500 text-sm'>
-                    No registered patients found.
-                  </div>
-                ) : (
-                  patients.map(p => (
-                    <div key={p.id} className='bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
-                      <div className='flex-1 pr-2 text-left'>
-                        <h3 className='font-bold text-sm text-violet-300'>{p.fullname}</h3>
-                        <p className='text-xs text-gray-300 mt-1'><span className='font-semibold text-gray-400'>Identity:</span> {p.identity} | <span className='font-semibold text-gray-400'>Gender:</span> {p.gender}</p>
-                        <p className='text-xs text-gray-300 mt-0.5'><span className='font-semibold text-gray-400'>Diagnosis:</span> {p.diagnosis}</p>
-                        {(p.house_number || p.surbub || p.city) && (
-                          <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Address:</span> {p.house_number || ''} {p.surbub || ''} {p.city || ''}</p>
-                        )}
-                        <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Next of Kin:</span> {p.nok_fullname} {p.nok_phone ? `(${p.nok_phone})` : ''}</p>
-                      </div>
-                      <div className='text-right text-xs text-gray-400 shrink-0 md:border-l md:border-white/5 md:pl-4'>
-                        <p className='font-medium text-gray-300'>{p.phone_number || 'No Phone'}</p>
-                        <p className='mt-0.5 text-gray-400'>{p.email || 'No Email'}</p>
-                      </div>
+          selectedPatientId ? (
+            <HealthRecordSection 
+              patientId={selectedPatientId} 
+              role={user.role} 
+              onClose={() => setSelectedPatientId(null)} 
+            />
+          ) : (
+            <div className='max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8'>
+              <div className='lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6'>
+                <h2 className='text-xl font-bold flex items-center gap-2 mb-6'>
+                  <FaUsers className='text-violet-400' />
+                  Patients for {user.organization || 'Cape Town Clinic'}
+                </h2>
+                <div className='space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar'>
+                  {patients.length === 0 ? (
+                    <div className='text-center py-12 text-gray-500 text-sm'>
+                      No registered patients found.
                     </div>
-                  ))
-                )}
+                  ) : (
+                    patients.map(p => (
+                      <div 
+                        key={p.id} 
+                        onClick={() => setSelectedPatientId(p.id)}
+                        className='cursor-pointer bg-white/5 border border-white/5 hover:border-violet-500/20 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'
+                      >
+                        <div className='flex-1 pr-2 text-left'>
+                          <h3 className='font-bold text-sm text-violet-300'>{p.fullname}</h3>
+                          <p className='text-xs text-gray-300 mt-1'><span className='font-semibold text-gray-400'>Identity:</span> {p.identity} | <span className='font-semibold text-gray-400'>Gender:</span> {p.gender}</p>
+                          <p className='text-xs text-gray-300 mt-0.5'><span className='font-semibold text-gray-400'>Diagnosis:</span> {p.diagnosis}</p>
+                          {(p.house_number || p.surbub || p.city) && (
+                            <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Address:</span> {p.house_number || ''} {p.surbub || ''} {p.city || ''}</p>
+                          )}
+                          <p className='text-[11px] text-gray-400 mt-1'><span className='font-semibold text-gray-500'>Next of Kin:</span> {p.nok_fullname} {p.nok_phone ? `(${p.nok_phone})` : ''}</p>
+                        </div>
+                        <div className='text-right text-xs text-gray-400 shrink-0 md:border-l md:border-white/5 md:pl-4'>
+                          <p className='font-medium text-gray-300'>{p.phone_number || 'No Phone'}</p>
+                          <p className='mt-0.5 text-gray-400'>{p.email || 'No Email'}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit overflow-y-auto max-h-[85vh] custom-scrollbar'>
-              <h2 className='text-lg font-bold flex items-center gap-2 mb-4 sticky top-0 bg-[#0c0f13] py-2 z-10'>
-                <FaPlusCircle className='text-fuchsia-400' />
-                Register New Patient
-              </h2>
-              <form onSubmit={handleRegisterPatient} className='space-y-4 text-left'>
-                
-                {/* --- Section 1: Core Details --- */}
-                <div className='space-y-3.5'>
-                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>1. Core Profile</h3>
+              <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit overflow-y-auto max-h-[85vh] custom-scrollbar'>
+                <h2 className='text-lg font-bold flex items-center gap-2 mb-4 sticky top-0 bg-[#0c0f13] py-2 z-10'>
+                  <FaPlusCircle className='text-fuchsia-400' />
+                  Register New Patient
+                </h2>
+                <form onSubmit={handleRegisterPatient} className='space-y-4 text-left'>
                   
-                  <div>
-                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Sipho Nkosi" 
-                      value={newPatient.fullname} 
-                      onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
-                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      required
-                    />
-                  </div>
-
-                  <div className='grid grid-cols-2 gap-2'>
+                  {/* --- Section 1: Core Details --- */}
+                  <div className='space-y-3.5'>
+                    <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>1. Core Profile</h3>
+                    
                     <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>ID Number <span className='text-red-400'>*</span></label>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
                       <input 
                         type="text" 
-                        placeholder="13-digit SA ID" 
-                        value={newPatient.identity} 
-                        onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
+                        placeholder="e.g. Sipho Nkosi" 
+                        value={newPatient.fullname} 
+                        onChange={e => setNewPatient({ ...newPatient, fullname: e.target.value })} 
                         className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
                         required
                       />
                     </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Gender <span className='text-red-400'>*</span></label>
+
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>ID Number <span className='text-red-400'>*</span></label>
+                        <input 
+                          type="text" 
+                          placeholder="13-digit SA ID" 
+                          value={newPatient.identity} 
+                          onChange={e => setNewPatient({ ...newPatient, identity: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Gender <span className='text-red-400'>*</span></label>
+                        <select 
+                          value={newPatient.gender} 
+                          onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
+                          className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
+                          required
+                        >
+                          <option value="Male" className='bg-slate-900'>Male</option>
+                          <option value="Female" className='bg-slate-900'>Female</option>
+                          <option value="Other" className='bg-slate-900'>Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                        <input 
+                          type="password" 
+                          placeholder="Password for login" 
+                          value={newPatient.password} 
+                          onChange={e => setNewPatient({ ...newPatient, password: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Diagnosis <span className='text-red-400'>*</span></label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Chronic Hypertension" 
+                          value={newPatient.diagnosis} 
+                          onChange={e => setNewPatient({ ...newPatient, diagnosis: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                        <input 
+                          type="email" 
+                          placeholder="patient@gmail.com" 
+                          value={newPatient.email} 
+                          onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. 0712345678" 
+                          value={newPatient.phone_number} 
+                          onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Assign Community Health Worker (CHW)</label>
                       <select 
-                        value={newPatient.gender} 
-                        onChange={e => setNewPatient({ ...newPatient, gender: e.target.value })} 
-                        className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs'
-                        required
+                        value={newPatient.chw_id || ''} 
+                        onChange={e => setNewPatient({ ...newPatient, chw_id: e.target.value })} 
+                        className='w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white focus:outline-none focus:border-violet-500 text-xs font-semibold'
                       >
-                        <option value="Male" className='bg-slate-900'>Male</option>
-                        <option value="Female" className='bg-slate-900'>Female</option>
-                        <option value="Other" className='bg-slate-900'>Other</option>
+                        <option value="" className='bg-slate-900'>Select CHW (Optional)</option>
+                        {chws.map(c => (
+                          <option key={c.id} value={c.id} className='bg-slate-900'>{c.fullname} (ID: {c.identity})</option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
-                  <div className='grid grid-cols-2 gap-2'>
+                  {/* --- Section 2: Residential Address --- */}
+                  <div className='space-y-3.5 pt-2'>
+                    <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>2. Location Details</h3>
+                    
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>House Number</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Room 4 / 12" 
+                          value={newPatient.house_number} 
+                          onChange={e => setNewPatient({ ...newPatient, house_number: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Surbub</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Khayelitsha" 
+                          value={newPatient.surbub} 
+                          onChange={e => setNewPatient({ ...newPatient, surbub: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                    </div>
+
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Municipality</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. City of Cape Town" 
+                          value={newPatient.municipality} 
+                          onChange={e => setNewPatient({ ...newPatient, municipality: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>City</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Cape Town" 
+                          value={newPatient.city} 
+                          onChange={e => setNewPatient({ ...newPatient, city: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* --- Section 3: Next of Kin --- */}
+                  <div className='space-y-3.5 pt-2'>
+                    <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>3. Next of Kin</h3>
+                    
                     <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Portal Password <span className='text-red-400'>*</span></label>
+                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
                       <input 
-                        type="password" 
-                        placeholder="Password for login" 
-                        value={newPatient.password} 
-                        onChange={e => setNewPatient({ ...newPatient, password: e.target.value })} 
+                        type="text" 
+                        placeholder="e.g. Nomvula Nkosi" 
+                        value={newPatient.nok_fullname} 
+                        onChange={e => setNewPatient({ ...newPatient, nok_fullname: e.target.value })} 
                         className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
                         required
                       />
                     </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Diagnosis <span className='text-red-400'>*</span></label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Chronic Hypertension" 
-                        value={newPatient.diagnosis} 
-                        onChange={e => setNewPatient({ ...newPatient, diagnosis: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                        required
-                      />
+
+                    <div className='grid grid-cols-2 gap-2'>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. 0823456789" 
+                          value={newPatient.nok_phone} 
+                          onChange={e => setNewPatient({ ...newPatient, nok_phone: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
+                      <div>
+                        <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
+                        <input 
+                          type="email" 
+                          placeholder="nok@example.com" 
+                          value={newPatient.nok_email} 
+                          onChange={e => setNewPatient({ ...newPatient, nok_email: e.target.value })} 
+                          className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className='grid grid-cols-2 gap-2'>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
-                      <input 
-                        type="email" 
-                        placeholder="patient@gmail.com" 
-                        value={newPatient.email} 
-                        onChange={e => setNewPatient({ ...newPatient, email: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 0712345678" 
-                        value={newPatient.phone_number} 
-                        onChange={e => setNewPatient({ ...newPatient, phone_number: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* --- Section 2: Residential Address --- */}
-                <div className='space-y-3.5 pt-2'>
-                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>2. Location Details</h3>
-                  
-                  <div className='grid grid-cols-2 gap-2'>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>House Number</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Room 4 / 12" 
-                        value={newPatient.house_number} 
-                        onChange={e => setNewPatient({ ...newPatient, house_number: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Surbub</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Khayelitsha" 
-                        value={newPatient.surbub} 
-                        onChange={e => setNewPatient({ ...newPatient, surbub: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                  </div>
-
-                  <div className='grid grid-cols-2 gap-2'>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Municipality</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. City of Cape Town" 
-                        value={newPatient.municipality} 
-                        onChange={e => setNewPatient({ ...newPatient, municipality: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>City</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Cape Town" 
-                        value={newPatient.city} 
-                        onChange={e => setNewPatient({ ...newPatient, city: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* --- Section 3: Next of Kin --- */}
-                <div className='space-y-3.5 pt-2'>
-                  <h3 className='text-[10px] font-bold text-violet-400 uppercase tracking-wider border-b border-white/5 pb-1'>3. Next of Kin</h3>
-                  
-                  <div>
-                    <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Full Name <span className='text-red-400'>*</span></label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Nomvula Nkosi" 
-                      value={newPatient.nok_fullname} 
-                      onChange={e => setNewPatient({ ...newPatient, nok_fullname: e.target.value })} 
-                      className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      required
-                    />
-                  </div>
-
-                  <div className='grid grid-cols-2 gap-2'>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Phone Number</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. 0823456789" 
-                        value={newPatient.nok_phone} 
-                        onChange={e => setNewPatient({ ...newPatient, nok_phone: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                    <div>
-                      <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Email Address</label>
-                      <input 
-                        type="email" 
-                        placeholder="nok@example.com" 
-                        value={newPatient.nok_email} 
-                        onChange={e => setNewPatient({ ...newPatient, nok_email: e.target.value })} 
-                        className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-4 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
-                  Register Patient Profile
-                </button>
-              </form>
+                  <button type="submit" className='cursor-pointer w-full bg-violet-500 hover:bg-violet-600 text-black font-extrabold py-3 rounded-xl transition-all duration-300 text-xs mt-4 hover:scale-[1.01] active:scale-95 shadow-lg shadow-violet-500/25'>
+                    Register Patient Profile
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
+          )
         )}
 
         {/* --- Referrals Section --- */}
@@ -2877,99 +3887,272 @@ const AdminDashboard = ({ user, handleLogout }) => {
 
         {/* --- Chat Room Section --- */}
         {activeTab === 'chat' && (
-          <div className='max-w-6xl mx-auto bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row gap-6 h-[550px]'>
-            {/* Left selector */}
-            <div className='w-full md:w-64 bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col justify-between shrink-0'>
-              <div>
-                <h3 className='text-sm font-bold flex items-center gap-1.5 mb-4 text-violet-400 border-b border-white/5 pb-2'>
-                  <FaComments />
-                  Chat Targeting
-                </h3>
-                <div className='space-y-2.5'>
-                  <div>
-                    <label className='block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wider'>Send broadcast to:</label>
-                    <div className='flex flex-col gap-1.5'>
-                      {['patients', 'chws', 'staff'].map(target => (
-                        <button 
-                          key={target}
-                          onClick={() => setChatTarget(target)}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold capitalize border transition-all duration-300 ${
-                            chatTarget === target ? 'bg-violet-500 text-black border-violet-500' : 'bg-white/5 text-gray-400 border-white/5 hover:border-violet-500/20'
-                          }`}
-                        >
-                          All {target}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className='h-px bg-white/5 my-3'></div>
-
-                  <div>
-                    <label className='block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wider'>Send private to:</label>
-                    <select 
-                      value={['patients', 'chws', 'staff'].includes(chatTarget) ? '' : chatTarget} 
-                      onChange={e => setChatTarget(e.target.value)} 
-                      className='w-full px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs'
-                    >
-                      <option value="" disabled>Select Recipient</option>
-                      <optgroup label="Patients" className='bg-slate-900'>
-                        {patients.map(p => <option key={`pat-${p.id}`} value={p.fullname}>{p.fullname}</option>)}
-                      </optgroup>
-                      <optgroup label="CHWs" className='bg-slate-900'>
-                        {chws.map(c => <option key={`chw-${c.id}`} value={c.fullname}>{c.fullname}</option>)}
-                      </optgroup>
-                      <optgroup label="Staff" className='bg-slate-900'>
-                        {staff.map(s => <option key={`stf-${s.id}`} value={s.fullname}>{s.fullname}</option>)}
-                      </optgroup>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className='bg-white/5 border border-white/5 rounded-xl p-3 text-[10px] text-gray-500'>
-                Targeting: <span className='text-violet-400 font-bold capitalize'>{chatTarget}</span>
-              </div>
-            </div>
-
-            {/* Right Chat logs */}
-            <div className='flex-1 flex flex-col justify-between h-full bg-black/20 border border-white/5 rounded-xl p-4'>
-              <div className='flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar max-h-[420px]'>
-                {chatMessages.filter(m => m.recipient === 'All' || m.recipient === chatTarget || m.sender.includes(chatTarget)).map(msg => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex flex-col max-w-[80%] rounded-xl p-3 ${
-                      msg.sender.includes("Admin") 
-                        ? 'bg-violet-600/30 border border-violet-500/20 self-end ml-auto' 
-                        : 'bg-white/5 border border-white/5 self-start mr-auto'
-                    }`}
-                  >
-                    <div className='flex justify-between items-center gap-4 mb-1'>
-                      <span className='text-[10px] font-bold text-violet-300'>{msg.sender}</span>
-                      <span className='text-[9px] text-gray-500'>{msg.timestamp}</span>
-                    </div>
-                    <p className='text-xs text-gray-200 leading-relaxed'>{msg.message}</p>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={handleSendChatMessage} className='flex gap-2 mt-4 pt-3 border-t border-white/5'>
-                <input 
-                  type="text" 
-                  placeholder={`Send message to ${chatTarget}...`}
-                  value={chatInput} 
-                  onChange={e => setChatInput(e.target.value)} 
-                  className='flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
-                  required
-                />
-                <button type="submit" className='cursor-pointer bg-violet-500 hover:bg-violet-600 text-black p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center'>
-                  <FaPaperPlane size={14} />
-                </button>
-              </form>
-            </div>
-          </div>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         )}
       </main>
+    </div>
+  );
+};
+
+// --- Reusable Notification Panel ---
+const NotificationPanel = ({ notifications, socket }) => {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkRead = (id) => {
+    if (socket) {
+      socket.emit('mark_notification_read', id);
+    }
+  };
+
+  return (
+    <div className='relative z-50'>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className='cursor-pointer relative bg-white/5 border border-white/10 hover:bg-white/10 p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center'
+      >
+        <FaBell size={16} className={unreadCount > 0 ? 'text-amber-400 animate-bounce' : 'text-gray-400'} />
+        {unreadCount > 0 && (
+          <span className='absolute -top-1 -right-1 bg-red-500 text-white font-extrabold text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-lg shadow-red-500/30'>
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className='absolute right-0 mt-3 w-80 bg-[#0c0f12] border border-white/10 rounded-2xl shadow-2xl p-4 text-left z-50 backdrop-blur-2xl'>
+          <div className='flex justify-between items-center pb-3 border-b border-white/5 mb-3'>
+            <h3 className='text-xs font-bold text-white'>Notifications</h3>
+            <span className='text-[9px] bg-white/5 text-gray-400 px-2 py-0.5 rounded-full font-semibold'>{unreadCount} unread</span>
+          </div>
+          <div className='space-y-3.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar'>
+            {notifications.map(notif => (
+              <div 
+                key={notif.id} 
+                className={`p-3 rounded-xl border transition-all duration-300 ${
+                  notif.read 
+                    ? 'bg-white/5 border-white/5 opacity-60' 
+                    : 'bg-white/10 border-white/10 hover:border-violet-500/20'
+                }`}
+              >
+                <div className='flex justify-between items-start gap-2 mb-1'>
+                  <h4 className={`text-xs font-extrabold ${notif.read ? 'text-gray-400' : 'text-white'}`}>{notif.title}</h4>
+                  {!notif.read && (
+                    <button 
+                      onClick={() => handleMarkRead(notif.id)}
+                      className='cursor-pointer bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-black p-1 rounded transition-all duration-200'
+                      title="Mark as read"
+                    >
+                      <FaCheck size={8} />
+                    </button>
+                  )}
+                </div>
+                <p className='text-[10.5px] text-gray-400 leading-normal mb-1.5'>{notif.message}</p>
+                <span className='text-[8px] text-gray-500 font-medium block'>{notif.timestamp}</span>
+              </div>
+            ))}
+            {notifications.length === 0 && (
+              <div className='text-center py-8 text-gray-500 text-xs'>
+                No notifications received.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Reusable Chat Room ---
+const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
+  const [selectedContact, setSelectedContact] = React.useState(null);
+  const [messageInput, setMessageInput] = React.useState('');
+  const chatContainerRef = React.useRef(null);
+
+  const role = user.role?.toLowerCase();
+  const myChatId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
+
+  const getRoleColors = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return {
+          primaryBg: 'bg-violet-500',
+          primaryHover: 'hover:bg-violet-600',
+          bubbleBg: 'bg-violet-600',
+          text: 'text-violet-400',
+          focusBorder: 'focus:border-violet-500'
+        };
+      case 'staff':
+        return {
+          primaryBg: 'bg-emerald-500',
+          primaryHover: 'hover:bg-emerald-600',
+          bubbleBg: 'bg-emerald-600',
+          text: 'text-emerald-400',
+          focusBorder: 'focus:border-emerald-500'
+        };
+      case 'chw':
+        return {
+          primaryBg: 'bg-orange-500',
+          primaryHover: 'hover:bg-orange-600',
+          bubbleBg: 'bg-orange-600',
+          text: 'text-orange-400',
+          focusBorder: 'focus:border-orange-500'
+        };
+      case 'patient':
+      default:
+        return {
+          primaryBg: 'bg-purple-500',
+          primaryHover: 'hover:bg-purple-600',
+          bubbleBg: 'bg-purple-600',
+          text: 'text-purple-400',
+          focusBorder: 'focus:border-purple-500'
+        };
+    }
+  };
+
+  const colors = getRoleColors(user.role);
+
+  React.useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages, selectedContact]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!messageInput.trim() || !selectedContact || !socket) return;
+
+    socket.emit('send_message', {
+      sender: myChatId,
+      senderName: user.fullname,
+      recipient: selectedContact.chat_id,
+      message: messageInput.trim()
+    });
+
+    setMessageInput('');
+  };
+
+  // Filter messages for current conversation (including direct messages and group announcements)
+  const activeMessages = chatMessages.filter(m => {
+    // 1. Direct messages
+    if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+    if (m.sender === selectedContact?.chat_id && m.recipient === myChatId) return true;
+
+    // 2. Admin to Group announcements (visible in conversation log with the sending admin)
+    if (selectedContact?.role === 'admin' && m.sender === selectedContact?.chat_id) {
+      const org = user.organization?.toLowerCase().trim();
+      if (org) {
+        if (m.recipient === `all_patients_${org}` && role === 'patient') return true;
+        if (m.recipient === `all_staff_${org}` && role === 'staff') return true;
+      }
+    }
+
+    // 3. For admin viewing their own sent group messages in the group virtual chat
+    if (role === 'admin' && selectedContact?.role === 'group') {
+      if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+    }
+
+    return false;
+  });
+
+  return (
+    <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
+      {/* Contact list side */}
+      <div className='w-1/3 border-r border-white/10 flex flex-col bg-black/20'>
+        <div className='p-4 border-b border-white/10'>
+          <h2 className='text-sm font-bold flex items-center gap-2'>
+            <FaComments className={colors.text} />
+            Conversations
+          </h2>
+        </div>
+        <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
+          {contacts.map(contact => (
+            <button
+              key={contact.chat_id}
+              onClick={() => setSelectedContact(contact)}
+              className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
+                selectedContact?.chat_id === contact.chat_id
+                  ? `${colors.primaryBg} text-black font-semibold`
+                  : 'hover:bg-white/5 text-gray-300'
+              }`}
+            >
+              <span className='text-xs font-bold'>{contact.fullname}</span>
+              <span className={`text-[10px] uppercase tracking-wider ${
+                selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
+              }`}>
+                {contact.role} - {contact.organization}
+              </span>
+            </button>
+          ))}
+          {contacts.length === 0 && (
+            <div className='text-center py-8 text-gray-500 text-xs'>
+              No contacts found.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Message window side */}
+      <div className='flex-1 flex flex-col bg-black/40'>
+        {selectedContact ? (
+          <>
+            {/* Header */}
+            <div className='p-4 border-b border-white/10 bg-white/5 flex items-center justify-between'>
+              <div>
+                <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
+                <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
+              </div>
+            </div>
+
+            {/* Chat list */}
+            <div ref={chatContainerRef} className='flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3'>
+              {activeMessages.map(msg => {
+                const isMe = msg.sender === myChatId;
+                return (
+                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-xs ${
+                      isMe 
+                        ? `${colors.bubbleBg} text-white rounded-tr-none` 
+                        : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
+                    }`}>
+                      <p>{msg.message}</p>
+                      <span className='block text-[8px] text-right mt-1 opacity-60'>{msg.timestamp}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {activeMessages.length === 0 && (
+                <div className='text-center py-20 text-gray-500 text-xs'>
+                  No messages yet. Send a message to start the conversation!
+                </div>
+              )}
+            </div>
+
+            {/* Chat form */}
+            <form onSubmit={handleSendMessage} className='p-4 border-t border-white/10 bg-white/5 flex gap-2'>
+              <input
+                type='text'
+                placeholder={`Type a message to ${selectedContact.fullname}...`}
+                value={messageInput}
+                onChange={e => setMessageInput(e.target.value)}
+                className={`flex-1 px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none ${colors.focusBorder} text-xs`}
+                required
+              />
+              <button
+                type='submit'
+                className={`${colors.primaryBg} ${colors.primaryHover} text-black p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center cursor-pointer`}
+              >
+                <FaPaperPlane size={14} />
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className='flex-1 flex flex-col items-center justify-center text-gray-500 p-8'>
+            <FaComments size={40} className='mb-4 text-gray-600' />
+            <p className='text-sm'>Select a contact from the left panel to start chatting.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -2977,6 +4160,62 @@ const AdminDashboard = ({ user, handleLogout }) => {
 // --- Main Dashboard Dispatcher ---
 const Dashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
+  const [socket, setSocket] = React.useState(null);
+  const [notifications, setNotifications] = React.useState([]);
+  const [chatMessages, setChatMessages] = React.useState([]);
+  const [contacts, setContacts] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin;
+    const socketInstance = io(socketUrl, {
+      withCredentials: true
+    });
+
+    setSocket(socketInstance);
+
+    const role = user.role?.toLowerCase();
+    const userId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
+
+    socketInstance.emit('register', userId);
+
+    socketInstance.on('chat_history', (msgs) => {
+      setChatMessages(msgs);
+    });
+
+    socketInstance.on('notifications_history', (notifs) => {
+      setNotifications(notifs);
+    });
+
+    socketInstance.on('receive_message', (msg) => {
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    });
+
+    socketInstance.on('receive_notification', (notif) => {
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notif.id)) return prev;
+        return [notif, ...prev];
+      });
+    });
+
+    const fetchContacts = async () => {
+      try {
+        const res = await axios.get('/api/auth/contacts');
+        setContacts(res.data.contacts || []);
+      } catch (err) {
+        console.error("Failed to fetch contacts:", err);
+      }
+    };
+    fetchContacts();
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -3007,15 +4246,24 @@ const Dashboard = ({ user, setUser }) => {
 
   const role = user.role?.toLowerCase();
 
+  const commonProps = {
+    user,
+    handleLogout,
+    socket,
+    notifications,
+    chatMessages,
+    contacts
+  };
+
   if (role === 'admin') {
-    return <AdminDashboard user={user} handleLogout={handleLogout} />;
+    return <AdminDashboard {...commonProps} />;
   } else if (role === 'staff') {
-    return <StaffDashboard user={user} handleLogout={handleLogout} />;
+    return <StaffDashboard {...commonProps} />;
   } else if (role === 'chw') {
-    return <ChwDashboard user={user} handleLogout={handleLogout} />;
+    return <ChwDashboard {...commonProps} />;
   } else {
     // Default to Patient Dashboard if role is 'patient' or unspecified
-    return <PatientDashboard user={user} handleLogout={handleLogout} />;
+    return <PatientDashboard {...commonProps} />;
   }
 };
 
