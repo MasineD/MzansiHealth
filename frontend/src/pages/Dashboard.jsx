@@ -4168,7 +4168,7 @@ const Dashboard = ({ user, setUser }) => {
   React.useEffect(() => {
     if (!user) return;
 
-    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin;
+    const socketUrl = (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) ? import.meta.env.VITE_API_BASE_URL : (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
     const socketInstance = io(socketUrl, {
       withCredentials: true
     });
