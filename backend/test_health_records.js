@@ -389,7 +389,7 @@ async function runTests() {
             },
             body: JSON.stringify({
                 organization: "Cape Town Clinic",
-                date_time: "2026-06-25 10:00:00",
+                date_time: "2026-06-25",
                 reason: "Routine Check"
             })
         });

@@ -659,9 +659,11 @@ const AppointmentsSection = ({ user }) => {
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(newAppointment.date);
-    if (selectedDate < today) {
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    if (newAppointment.date < todayStr) {
       alert("Appointment date cannot be in the past.");
       return;
     }
@@ -2104,7 +2106,7 @@ const ReferralsSection = ({ user }) => {
   };
 
   const colors = getRoleColors(user.role);
-  const canManage = ['admin', 'staff', 'chw'].includes(user.role?.toLowerCase());
+  const canManage = user.role?.toLowerCase() !== 'patient';
 
   const fetchReferrals = async () => {
     try {
@@ -2199,9 +2201,12 @@ const ReferralsSection = ({ user }) => {
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(newReferral.arrival_date);
-    if (selectedDate < today) {
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const referralDateStr = newReferral.arrival_date.substring(0, 10);
+    if (referralDateStr < todayStr) {
       alert("Referral arrival date cannot be in the past.");
       return;
     }
@@ -2260,9 +2265,12 @@ const ReferralsSection = ({ user }) => {
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selectedDate = new Date(editForm.arrival_date);
-    if (selectedDate < today) {
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+    const referralDateStr = editForm.arrival_date.substring(0, 10);
+    if (referralDateStr < todayStr) {
       alert("Referral arrival date cannot be in the past.");
       return;
     }
@@ -2901,7 +2909,7 @@ const ReferralsSection = ({ user }) => {
               >
                 Download Ticket
               </button>
-              {canManage && selectedReferral.status !== 'fulfilled' && (
+              {['admin', 'staff'].includes(user.role?.toLowerCase()) && selectedReferral.status !== 'fulfilled' && (
                 <button 
                   onClick={() => handleFulfillReferral(selectedReferral.id)}
                   className='cursor-pointer flex-1 bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.01]'

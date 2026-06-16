@@ -16,6 +16,44 @@ const generateKey = () => {
     return key;
 };
 
+// Normalize date_time input so if time is missing, it defaults to 00:00:00
+const normalizeDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return null;
+    const trimmed = dateTimeStr.trim();
+    // Match YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return `${trimmed}T00:00:00`;
+    }
+    // Match YYYY-MM-DD HH:MM or YYYY-MM-DDTHH:MM
+    if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/.test(trimmed)) {
+        const normalized = trimmed.replace(' ', 'T');
+        return `${normalized}:00`;
+    }
+    return trimmed.replace(' ', 'T');
+};
+
+// Format Date/Timestamp safely for SMS and notification messages
+const formatAppointmentDateTime = (dateTimeVal) => {
+    if (!dateTimeVal) return '';
+    const dateObj = typeof dateTimeVal === 'string' ? new Date(dateTimeVal) : dateTimeVal;
+    if (isNaN(dateObj.getTime())) return dateTimeVal.toString();
+    
+    const hours = dateObj.getHours();
+    const minutes = dateObj.getMinutes();
+    const seconds = dateObj.getSeconds();
+    
+    if (hours === 0 && minutes === 0 && seconds === 0) {
+        // Return date only
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    return dateObj.toLocaleString();
+};
+
+
 // Retrieve care givers (staff members) for a given organization (public endpoint)
 router.get('/public/caregivers', async (req, res) => {
     try {
@@ -48,11 +86,12 @@ router.post('/public', async (req, res) => {
         if (!organization || !organization.trim()) {
             return res.status(400).json({ message: 'Organization is required for scheduling an appointment' });
         }
-        if (!reason || !reason.trim() || !date_time) {
+        const normalizedDateTime = normalizeDateTime(date_time);
+        if (!reason || !reason.trim() || !normalizedDateTime) {
             return res.status(400).json({ message: 'Please provide appointment reason and date_time' });
         }
 
-        const appointmentDateStr = date_time.substring(0, 10);
+        const appointmentDateStr = normalizedDateTime.substring(0, 10);
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -79,7 +118,7 @@ router.post('/public', async (req, res) => {
                 organization.trim(),
                 care_giver ? care_giver.toString().trim() : null,
                 reason.trim(),
-                date_time,
+                normalizedDateTime,
                 'pending',
                 appointment_key,
                 contact_email ? contact_email.trim() : null,
@@ -107,7 +146,7 @@ router.post('/public', async (req, res) => {
 
         // Trigger notifications to caregiver and admins
         const createNotification = req.app.get('createNotification');
-        const formattedDate = new Date(date_time).toLocaleString();
+        const formattedDate = formatAppointmentDateTime(normalizedDateTime);
 
         if (createNotification) {
             // Notify the caregiver if assigned
@@ -249,11 +288,12 @@ router.post('/', protect, async (req, res) => {
     try {
         const { organization, care_giver, reason, date_time } = req.body;
 
-        if (!reason || !reason.trim() || !date_time) {
+        const normalizedDateTime = normalizeDateTime(date_time);
+        if (!reason || !reason.trim() || !normalizedDateTime) {
             return res.status(400).json({ message: 'Please provide appointment reason and date_time' });
         }
 
-        const appointmentDateStr = date_time.substring(0, 10);
+        const appointmentDateStr = normalizedDateTime.substring(0, 10);
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -282,7 +322,7 @@ router.post('/', protect, async (req, res) => {
                 finalOrganization.trim(),
                 care_giver ? care_giver.toString().trim() : null,
                 reason.trim(),
-                date_time,
+                normalizedDateTime,
                 'pending',
                 appointment_key
             ]
@@ -309,7 +349,7 @@ router.post('/', protect, async (req, res) => {
 
         // Trigger notifications
         const createNotification = req.app.get('createNotification');
-        const formattedDate = new Date(date_time).toLocaleString();
+        const formattedDate = formatAppointmentDateTime(normalizedDateTime);
 
         if (createNotification) {
             const visitorChatId = `${req.user.role === 'admin' || req.user.role === 'staff' ? 'user' : req.user.role}_${req.user.id}`;
@@ -443,7 +483,7 @@ router.put('/:id/status', protect, async (req, res) => {
         }
 
         // Trigger status update notifications & SMS
-        const formattedDate = new Date(updatedApp.date_time).toLocaleString();
+        const formattedDate = formatAppointmentDateTime(updatedApp.date_time);
         const statusVerb = status === 'approved' ? 'approved' : 'cancelled/rejected';
         
         // 1. Send SMS if phone number is available

@@ -359,7 +359,7 @@ const Home = ({ setUser }) => {
                   activeTab === sect ? 'text-green-500 border-b-2 border-green-500 pb-1' : 'text-gray-400'
                 }`}
               >
-                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Book Appointment' : sect}
+                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Bookings' : sect}
               </button>
             ))}
           </div>
@@ -382,7 +382,7 @@ const Home = ({ setUser }) => {
                 onClick={() => scrollToSection(sect)}
                 className='text-left capitalize font-semibold text-lg text-gray-300 hover:text-green-500 transition-colors py-2'
               >
-                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Book Appointment' : sect}
+                {sect === 'contact' ? 'Contact Us' : sect === 'appointment' ? 'Bookings' : sect}
               </button>
             ))}
           </div>
@@ -840,7 +840,7 @@ const Home = ({ setUser }) => {
         <div className='max-w-3xl mx-auto'>
           {/* Section Header */}
           <div className='text-center mb-16 space-y-2'>
-            <h2 className='text-3xl md:text-5xl font-black tracking-tight text-white'>Book Appointment</h2>
+            <h2 className='text-3xl md:text-5xl font-black tracking-tight text-white'>Bookings</h2>
             <p className='text-gray-400 text-sm md:text-base'>Schedule an appointment as an unregistered guest</p>
             <div className='h-1 w-20 bg-green-500 mx-auto mt-2 rounded-full'></div>
           </div>
