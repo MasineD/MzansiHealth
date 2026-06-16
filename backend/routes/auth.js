@@ -153,7 +153,7 @@ router.post('/login', async (req, res) => {
         const token = generateToken(userData.id, userData.role);
         res.cookie('token', token, cookieOptions);
         
-        res.json({ user: { id: userData.id, fullname: userData.fullname, identity: userData.identity, email: userData.email, phone_number: userData.phone_number, role: userData.role, organization: userData.organization } });
+        res.json({ user: { id: userData.id, fullname: userData.fullname, identity: userData.identity, email: userData.email, phone_number: userData.phone_number, role: userData.role, organization: userData.organization, facility_code: userData.facility_code || null, staff_number: userData.staff_number || null, profession: userData.profession || null } });
     } catch (error) {
         console.error('Error in login route:', error);
         return res.status(500).json({ message: 'Server error during login' });
