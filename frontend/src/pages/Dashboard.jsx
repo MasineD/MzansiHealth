@@ -1628,7 +1628,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
   });
 
   // Verification state (required for editing)
-  const [verification, setVerification] = React.useState({ patient_name: '', patient_identity: '' });
+  const [verification, setVerification] = React.useState({ patient_name: '', fulfillment_key: '' });
 
   // Routine state
   const [showAddRoutine, setShowAddRoutine] = React.useState(null); // record_id
@@ -1649,7 +1649,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
       if (res.data.patientInfo) {
         setVerification({
           patient_name: res.data.patientInfo.fullname,
-          patient_identity: ''
+          fulfillment_key: ''
         });
       }
     } catch (err) {
@@ -1923,8 +1923,8 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
 
   const handleSaveRecord = async (e) => {
     e.preventDefault();
-    if (!verification.patient_name || !verification.patient_identity) {
-      alert("Verification required: Please provide patient name and ID number.");
+    if (!verification.patient_name || !verification.fulfillment_key) {
+      alert("Verification required: Please provide patient name and fulfillment key.");
       return;
     }
 
@@ -1932,7 +1932,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
       const payload = {
         ...newRecordData,
         patient_name: verification.patient_name,
-        patient_identity: verification.patient_identity
+        fulfillment_key: verification.fulfillment_key
       };
 
       if (editingRecord) {
@@ -2027,7 +2027,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     setEditingRecord(record);
     setVerification({
       patient_name: data.patientInfo?.fullname || '',
-      patient_identity: ''
+      fulfillment_key: ''
     });
     setNewRecordData({
       blood_group: record.blood_group || '',
@@ -2138,15 +2138,15 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4">
             <div className="md:col-span-2">
               <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider">Database Lock Verification</h4>
-              <p className="text-[10px] text-gray-400 mt-0.5">Please confirm the patient's name and ID number to unlock and save modifications.</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">Please confirm the patient's name and fulfillment key to unlock and save modifications.</p>
             </div>
             <div>
               <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient Full Name <span className="text-red-400">*</span></label>
               <input type="text" value={verification.patient_name} onChange={e => setVerification({...verification, patient_name: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
             </div>
             <div>
-              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient ID Number <span className="text-red-400">*</span></label>
-              <input type="text" value={verification.patient_identity} onChange={e => setVerification({...verification, patient_identity: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
+              <label className="block text-[10px] text-gray-400 mb-1 font-semibold">Patient Fulfillment Key <span className="text-red-400">*</span></label>
+              <input type="text" value={verification.fulfillment_key} onChange={e => setVerification({...verification, fulfillment_key: e.target.value})} className="w-full px-3 py-2 bg-slate-900 border border-white/10 rounded-lg text-xs" required />
             </div>
           </div>
 
@@ -2235,7 +2235,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
             Clinical Records Log
           </h3>
           {!isPatient && !showAddRecord && !editingRecord && (
-            <button onClick={() => { setShowAddRecord(true); setEditingRecord(null); setVerification(prev => ({ ...prev, patient_identity: '' })); }} className={`cursor-pointer flex items-center gap-1.5 text-xs ${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-105`}>
+            <button onClick={() => { setShowAddRecord(true); setEditingRecord(null); setVerification(prev => ({ ...prev, fulfillment_key: '' })); }} className={`cursor-pointer flex items-center gap-1.5 text-xs ${theme.btnBg} ${theme.hoverBg} px-4 py-2 rounded-xl font-bold transition-all duration-300 hover:scale-105`}>
               <FaPlus size={10} /> Add record
             </button>
           )}
