@@ -14,7 +14,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
         let user;
         if (decoded.role === 'patient') {
             const result = await pool.query(
-                `SELECT p.id, p.fullname, p.identity, p.email, p.phone_number, 'patient' AS role, u.organization 
+                `SELECT p.id, p.fullname, p.identity, p.email, p.phone_number, 'patient' AS role, u.organization, p.fulfillment_code 
                  FROM users.patients p
                  LEFT JOIN users.user_profiles u ON p.registra_id = u.id
                  WHERE p.id = $1`,
@@ -25,7 +25,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
             }
         } else if (decoded.role === 'chw') {
             const result = await pool.query(
-                `SELECT c.id, c.fullname, c.identity, c.email, c.phone_number, 'chw' AS role, u.organization 
+                `SELECT c.id, c.fullname, c.identity, c.email, c.phone_number, 'chw' AS role, u.organization, c.fulfillment_code 
                  FROM users.community_health_workers c
                  LEFT JOIN users.user_profiles u ON c.registra_id = u.id
                  WHERE c.id = $1`,
@@ -36,7 +36,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
             }
         } else {
             const result = await pool.query(
-                'SELECT id, fullname, identity, email, phone_number, role, organization, facility_code, staff_number, profession FROM users.user_profiles WHERE id = $1',
+                'SELECT id, fullname, identity, email, phone_number, role, organization, facility_code, staff_number, profession, fulfillment_code FROM users.user_profiles WHERE id = $1',
                 [decoded.id]
             );
             if (result.rows.length > 0) {

@@ -130,7 +130,24 @@ router.post('/', protect, async (req, res) => {
             }
         }
 
-        const referral_key = generateKey();
+        // Fetch the referred user's unique fulfillment code from patients, CHWs, or user profiles
+        let patientCode = null;
+        const patientCodeRes = await pool.query('SELECT fulfillment_code FROM users.patients WHERE id = $1', [patient_id]);
+        if (patientCodeRes.rows.length > 0) {
+            patientCode = patientCodeRes.rows[0].fulfillment_code;
+        } else {
+            const chwCodeRes = await pool.query('SELECT fulfillment_code FROM users.community_health_workers WHERE id = $1', [patient_id]);
+            if (chwCodeRes.rows.length > 0) {
+                patientCode = chwCodeRes.rows[0].fulfillment_code;
+            } else {
+                const userCodeRes = await pool.query('SELECT fulfillment_code FROM users.user_profiles WHERE id = $1', [patient_id]);
+                if (userCodeRes.rows.length > 0) {
+                    patientCode = userCodeRes.rows[0].fulfillment_code;
+                }
+            }
+        }
+
+        const referral_key = patientCode || generateKey();
 
         const result = await pool.query(
             `INSERT INTO todos.referrals (patient_id, organization_to, department_to, staff_to, reason, arrival_date, status, referral_key, referrer_id)

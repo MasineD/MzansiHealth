@@ -28,6 +28,25 @@ router.get('/', protect, async (req, res) => {
     }
 });
 
+const generateUniqueFulfillmentCode = async () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code;
+    let isUnique = false;
+    while (!isUnique) {
+        code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const pRes = await pool.query("SELECT 1 FROM users.patients WHERE fulfillment_code = $1", [code]);
+        const chwRes = await pool.query("SELECT 1 FROM users.community_health_workers WHERE fulfillment_code = $1", [code]);
+        const userRes = await pool.query("SELECT 1 FROM users.user_profiles WHERE fulfillment_code = $1", [code]);
+        if (pRes.rows.length === 0 && chwRes.rows.length === 0 && userRes.rows.length === 0) {
+            isUnique = true;
+        }
+    }
+    return code;
+};
+
 // Register a new CHW (admin only)
 router.post('/', protect, async (req, res) => {
     try {
@@ -68,13 +87,14 @@ router.post('/', protect, async (req, res) => {
 
         // Hash the CHW's password
         const hashedPassword = await bcrypt.hash(password, 10);
+        const fulfillment_code = await generateUniqueFulfillmentCode();
 
         // Insert new CHW into the database
         const result = await pool.query(
             `INSERT INTO users.community_health_workers (
-                registra_id, employee_id, fullname, identity, password, email, phone_number
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, registra_id, employee_id, fullname, identity, email, phone_number, created_at`,
+                registra_id, employee_id, fullname, identity, password, email, phone_number, fulfillment_code
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, registra_id, employee_id, fullname, identity, email, phone_number, created_at, fulfillment_code`,
             [
                 req.user.id,
                 employee_id.trim(),
@@ -82,7 +102,8 @@ router.post('/', protect, async (req, res) => {
                 identity.trim(),
                 hashedPassword,
                 (email && email.trim()) ? email.trim() : null,
-                (phone_number && phone_number.trim()) ? phone_number.trim() : null
+                (phone_number && phone_number.trim()) ? phone_number.trim() : null,
+                fulfillment_code
             ]
         );
 

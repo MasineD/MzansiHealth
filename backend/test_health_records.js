@@ -34,6 +34,11 @@ async function runTests() {
             })
         });
         if (!registerAdminRes.ok) throw new Error("Admin registration failed");
+        const registerAdminData = await registerAdminRes.json();
+        if (!registerAdminData.user.fulfillment_code || registerAdminData.user.fulfillment_code.length !== 6) {
+            throw new Error("Admin registration did not generate a valid unique fulfillment_code");
+        }
+        console.log(`Admin fulfillment code: ${registerAdminData.user.fulfillment_code}`);
 
         const loginAdminRes = await fetch("http://localhost:5000/api/auth/login", {
             method: "POST",
@@ -66,6 +71,10 @@ async function runTests() {
         const chwData = await registerChwRes.json();
         const chwId = chwData.chw.id;
         console.log(`CHW registered. ID: ${chwId}`);
+        if (!chwData.chw.fulfillment_code || chwData.chw.fulfillment_code.length !== 6) {
+            throw new Error("CHW registration did not generate a valid unique fulfillment_code");
+        }
+        console.log(`CHW fulfillment code: ${chwData.chw.fulfillment_code}`);
 
         const loginChwRes = await fetch("http://localhost:5000/api/auth/login", {
             method: "POST",
@@ -107,7 +116,11 @@ async function runTests() {
         const patientData = await registerPatientRes.json();
         const patientId = patientData.patient.id;
         console.log(`Patient registered. ID: ${patientId}`);
-
+        if (!patientData.patient.fulfillment_code || patientData.patient.fulfillment_code.length !== 6) {
+            throw new Error("Patient registration did not generate a valid unique fulfillment_code");
+        }
+        console.log(`Patient fulfillment code: ${patientData.patient.fulfillment_code}`);
+ 
         const loginPatientRes = await fetch("http://localhost:5000/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -116,8 +129,12 @@ async function runTests() {
                 password: "PatientPassword123"
             })
         });
+        const loginPatientData = await loginPatientRes.json();
         const patientCookie = getCookie(loginPatientRes);
         console.log("Patient cookie obtained.");
+        if (loginPatientData.user.fulfillment_code !== patientData.patient.fulfillment_code) {
+            throw new Error("Patient login did not return correct fulfillment_code");
+        }
 
         // 5. Verify default record and routine creation
         console.log("5. Verifying default record and routine creation...");
@@ -396,6 +413,10 @@ async function runTests() {
         const appCreateData = await appointmentCreateRes.json();
         const appointmentId = appCreateData.appointment.id;
         const appKey = appCreateData.appointment.appointment_key;
+        if (appKey !== patientData.patient.fulfillment_code) {
+            throw new Error("Expected appointment_key to be patient's persistent fulfillment_code, but got " + appKey);
+        }
+        console.log(`Appointment key verified: matches patient fulfillment_code (${appKey})`);
 
         // Fulfill the appointment as admin
         const fulfillRes = await fetch(`http://localhost:5000/api/appointments/${appointmentId}/fulfill`, {
@@ -440,6 +461,12 @@ async function runTests() {
         });
         const refData = await referralCreateRes.json();
         const referralId = refData.referral.id;
+        const dbRefKeyResult = await pool.query("SELECT referral_key FROM todos.referrals WHERE id = $1", [referralId]);
+        const storedRefKey = dbRefKeyResult.rows[0].referral_key;
+        if (storedRefKey !== patientData.patient.fulfillment_code) {
+            throw new Error("Expected referral_key in DB to be patient's persistent fulfillment_code, but got " + storedRefKey);
+        }
+        console.log(`Referral key in database verified: matches patient fulfillment_code (${storedRefKey})`);
 
         // Try to edit the referral as receiver (Admin of Cape Town Clinic) -> Should fail with 403
         const editRefRes = await fetch(`http://localhost:5000/api/referrals/${referralId}`, {
