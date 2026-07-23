@@ -11,7 +11,18 @@ import './index.css';
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
 axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
 const App = () => {
-  const [user, setUser] = useState(null);
+  // The current user's data
+  const [user, setUser] = useState(() => {
+    const cached = localStorage.getItem('user');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   // const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -24,7 +35,7 @@ const App = () => {
         // Make a request to the backend to check for a valid session or token
         const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
         setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+        localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
       } catch (err) {
         setUser(null);
         // setError("Failed to check user session");
