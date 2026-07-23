@@ -32,15 +32,15 @@ const App = () => {
     // Check if the user is logged in by making a request to the backend, and update the state accordingly
     const fetchUserSession = async () => {
       try {
-        if(user == null){
-          const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
-          setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
-          localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
-        }
+        // if(user == null){
+        //   const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
+        //   setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
+        //   localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
+        // }
         // Make a request to the backend to check for a valid session or token
-        // const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
-        setUser(JSON.parse(localStorage.getItem('user'))); // If the session is valid, set the user state to the user data returned from the backend
-        // localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
+        const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
+        setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
+        localStorage.setItem('user', res.data.user);  //Store current user's data on local storage
       } catch (err) {
         setUser(null);
         // setError("Failed to check user session");
