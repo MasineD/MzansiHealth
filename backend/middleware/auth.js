@@ -6,7 +6,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
     try {
         const token = req.cookies.token;   //Extracts the JWT token from the request cookies. The token is expected to be stored in a cookie named 'token'.
         if(!token) {   //If no token is found in the cookies, it returns a 401 Unauthorized response with an error message.
-            return res.status(401).json({ message: 'Not authorized' });
+            return res.status(401).json({ message: 'Not authorized. Token is not found' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);   //Verifies the JWT token using the secret key stored in environment variables.
@@ -51,7 +51,7 @@ const protect = async (req, res, next) => {   //Defines an asynchronous middlewa
         next();   //Calls the next middleware function in the stack.
     } catch (error) {
         console.error('Error in auth middleware:', error);   //Logs any errors that occur during the token verification process to the console for debugging purposes.
-        res.status(401).json({ message: 'Not authorized' });   //Returns a 401 Unauthorized response with an error message if the token is invalid or cannot be verified.
+        res.status(401).json({ message: 'Not authorized. Token is invalid or cannot be verified' });   //Returns a 401 Unauthorized response with an error message if the token is invalid or cannot be verified.
     }
 };
 
