@@ -187,7 +187,11 @@ router.get('/current', protect, async (req, res) => {
 });
 // Logout route
 router.post('/logout', (req, res) => {
-    res.clearCookie('token');   //Clears the 'token' cookie from the client's browser, effectively logging the user out by removing the JWT token that was used for authentication.
+    res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });   //Clears the 'token' cookie from the client's browser, effectively logging the user out by removing the JWT token that was used for authentication.
     res.json({ message: 'Logged out successfully' });   //Returns a JSON response indicating that the user has been logged out successfully.
 });
 
