@@ -182,30 +182,8 @@ router.post('/login', async (req, res) => {
     }
 }); 
 // Current user route
-// ===== CHANGE 5: Updated current route with better error handling =====
 router.get('/current', protect, async (req, res) => {
-  try {
-    // The protect middleware already verifies the token
-    // and attaches the user to req.user
-    if (!req.user) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-    
-    // Fetch fresh user data to ensure session is valid
-    const userResult = await pool.query(
-      'SELECT id, fullname, identity, email, phone_number, role, organization, facility_code, staff_number, profession, fulfillment_code FROM users.user_profiles WHERE id = $1',
-      [req.user.id]
-    );
-    
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    res.json({ user: userResult.rows[0] });
-  } catch (error) {
-    console.error('Error in current user route:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+    res.json({ user: req.user });   //Returns the current authenticated user's information in the response body. This route is typically protected by authentication middleware that verifies the JWT token and attaches the user information to the request object (req.user) before reaching this handler.
 });
 // Logout route
 router.post('/logout', (req, res) => {
