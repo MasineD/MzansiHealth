@@ -8,7 +8,7 @@ import NotFound from './components/NotFound';
 import axios from 'axios';
 import './index.css';
 
-axios.defaults.baseURL = (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) ? import.meta.env.VITE_API_BASE_URL : 'http://localhost:5000'; // Target the backend server
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
 axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
 const App = () => {
   const [user, setUser] = useState(null);
