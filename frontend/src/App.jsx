@@ -27,6 +27,7 @@ const App = () => {
       } catch (err) {
         setUser(null);
         // setError("Failed to check user session");
+        console.log("failed to fetch user session");
       }
       finally {
         setLoading(false); // Set loading to false after checking the session
