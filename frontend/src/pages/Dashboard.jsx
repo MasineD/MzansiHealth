@@ -3496,7 +3496,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
   // --- Form Submit Handlers (State-based updates) ---
   const handleRegisterPatient = async (e) => {
     e.preventDefault();
-    if (!newPatient.fullname || !newPatient.identity || !newPatient.gender || !newPatient.password || !newPatient.diagnosis || !newPatient.nok_fullname) {
+    if (!newPatient.fullname || !newPatient.identity || !newPatient.gender || !newPatient.password || !newPatient.nok_fullname) {
       alert("Please fill in all required fields.");
       return;
     }
@@ -3809,7 +3809,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
                   )}
                 </div>
               </div>
-
+              {/*----------- Registering a new patient--------------- */}
               <div className='bg-white/5 border border-white/10 rounded-2xl p-6 h-fit overflow-y-auto max-h-[85vh] custom-scrollbar'>
                 <h2 className='text-lg font-bold flex items-center gap-2 mb-4 sticky top-0 bg-[#0c0f13] py-2 z-10'>
                   <FaPlusCircle className='text-fuchsia-400' />
@@ -3872,7 +3872,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
                           required
                         />
                       </div>
-                      <div>
+                      {/* <div>
                         <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Diagnosis <span className='text-red-400'>*</span></label>
                         <input 
                           type="text" 
@@ -3882,7 +3882,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
                           className='w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-xs' 
                           required
                         />
-                      </div>
+                      </div> */}
                     </div>
 
                     <div className='grid grid-cols-2 gap-2'>
