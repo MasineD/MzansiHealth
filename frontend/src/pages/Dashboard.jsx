@@ -3907,7 +3907,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
                         />
                       </div>
                     </div>
-                    <div className="mt-3">
+                    {/* <div className="mt-3">
                       <label className='block text-[10px] text-gray-400 mb-1 font-semibold'>Assign Community Health Worker (CHW)</label>
                       <select 
                         value={newPatient.chw_id || ''} 
@@ -3919,7 +3919,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
                           <option key={c.id} value={c.id} className='bg-slate-900'>{c.fullname} (ID: {c.identity})</option>
                         ))}
                       </select>
-                    </div>
+                    </div> */}
                   </div>
 
                   {/* --- Section 2: Residential Address --- */}
