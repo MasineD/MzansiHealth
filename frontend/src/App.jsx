@@ -24,6 +24,7 @@ const App = () => {
         // Make a request to the backend to check for a valid session or token
         const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
         setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
+        localStorage.setItem('user', JSON.stringify(res.data.user));
       } catch (err) {
         setUser(null);
         // setError("Failed to check user session");
