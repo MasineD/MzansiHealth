@@ -7,8 +7,8 @@ import { io } from 'socket.io-client';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck
 } from 'react-icons/fa';
 
-// axios.defaults.baseURL = (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) ? import.meta.env.VITE_API_BASE_URL : 'http://localhost:5000'; // Target the backend server
-const API_URL = import.meta.env.VITE_API_BASE_URL;
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
+// const API_URL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
 
 // --- Staff Dashboard Component ---
@@ -1363,7 +1363,7 @@ const ReviewsSection = ({ user }) => {
       return;
     }
     try {
-      await axios.post(`${API_URL}/api/reviews`, {
+      await axios.post('/api/reviews', {
         rating: newReview.rating,
         comment: newReview.comment.trim()
       });
