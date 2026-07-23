@@ -1,36 +1,37 @@
-import React,{ useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; // Fixed import
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
-
 import Dashboard from './pages/Dashboard';
 import NotFound from './components/NotFound';
 import axios from 'axios';
 import './index.css';
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
-axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
+axios.defaults.withCredentials = true;
+
+// ===== CHANGE 1: Created ProtectedRoute component for better route protection =====
+const ProtectedRoute = ({ user, children, redirectTo = "/" }) => {
+  if (!user) {
+    return <Navigate to={redirectTo} replace />;
+  }
+  return children;
+};
+
 const App = () => {
   const [user, setUser] = useState(null);
-  // const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Managing user sessions, by making requests to the backend to check if the user is logged in, and updating the state accordingly, will go here
-
   useEffect(() => {
-    // Check if the user is logged in by making a request to the backend, and update the state accordingly
     const fetchUserSession = async () => {
       try {
-        // Make a request to the backend to check for a valid session or token
-        const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
-        setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
+        const res = await axios.get('/api/auth/current');
+        setUser(res.data.user);
       } catch (err) {
         setUser(null);
-        // setError("Failed to check user session");
-        console.log("failed to fetch user session");
-      }
-      finally {
-        setLoading(false); // Set loading to false after checking the session
+        console.log("Failed to fetch user session");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -38,18 +39,35 @@ const App = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>; // Show a loading state while checking the session
+    return <div>Loading...</div>;
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Home setUser={setUser} />} />
-        { user && <Route path="/dashboard" element={<Dashboard user={user} setUser={setUser} />}/> } {/* Only render the dashboard route if the user is logged in */ }
-        <Route path="*" element={<NotFound />} /> {/* A catch-all route for undefined paths */ }
+        {/* ===== CHANGE 2: Home route with proper redirect ===== */}
+        <Route 
+          path="/" 
+          element={
+            user ? <Navigate to="/dashboard" replace /> : <Home setUser={setUser} />
+          } 
+        />
+        
+        {/* ===== CHANGE 3: Dashboard route is ALWAYS defined, but protected ===== */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute user={user}>
+              <Dashboard user={user} setUser={setUser} />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* ===== CHANGE 4: Catch-all route remains at the bottom ===== */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
-  )
-}
+  );
+};
 
-export default App
+export default App;
