@@ -1,168 +1,72 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React,{ useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+
+import Dashboard from './pages/Dashboard';
+import NotFound from './components/NotFound';
 import axios from 'axios';
 import './index.css';
 
-// Component imports
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
-import NotFound from './components/NotFound';
-
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
-axios.defaults.withCredentials = true;
-
-// ===== CHANGE 1: Helper functions for localStorage management =====
-const USER_STORAGE_KEY = 'user';
-const SESSION_TIMESTAMP_KEY = 'session_timestamp';
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-const getCachedUser = () => {
-  try {
-    const cached = localStorage.getItem(USER_STORAGE_KEY);
-    const timestamp = localStorage.getItem(SESSION_TIMESTAMP_KEY);
-    
-    if (cached && timestamp) {
-      // Check if session is still valid based on timestamp
-      const sessionAge = Date.now() - parseInt(timestamp, 10);
-      if (sessionAge < SESSION_DURATION) {
-        const parsedUser = JSON.parse(cached);
-        if (parsedUser && parsedUser.id && parsedUser.role) {
-          return parsedUser;
-        }
-      } else {
-        // Session expired - clear storage
-        localStorage.removeItem(USER_STORAGE_KEY);
-        localStorage.removeItem(SESSION_TIMESTAMP_KEY);
-      }
-    }
-  } catch (e) {
-    console.error('Failed to parse cached user:', e);
-    localStorage.removeItem(USER_STORAGE_KEY);
-    localStorage.removeItem(SESSION_TIMESTAMP_KEY);
-  }
-  return null;
-};
-
-const setCachedUser = (userData) => {
-  try {
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString());
-  } catch (e) {
-    console.error('Failed to cache user data:', e);
-  }
-};
-
-const clearCachedUser = () => {
-  localStorage.removeItem(USER_STORAGE_KEY);
-  localStorage.removeItem(SESSION_TIMESTAMP_KEY);
-};
-
-// ===== CHANGE 2: Protected Route Component =====
-const ProtectedRoute = ({ user, children, redirectTo = "/" }) => {
-  if (!user) {
-    return <Navigate to={redirectTo} replace />;
-  }
-  return children;
-};
-
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
+axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
 const App = () => {
-  // ===== CHANGE 3: Initialize state from localStorage =====
-  const [user, setUser] = useState(getCachedUser);
-  const [loading, setLoading] = useState(!user); // Don't show loading if we have cached user
-  const [isVerifying, setIsVerifying] = useState(false);
-
-  // ===== CHANGE 4: Session verification with caching strategy =====
-  const verifySession = useCallback(async () => {
-    // If we're already verifying, don't start another verification
-    if (isVerifying) return;
-    
-    setIsVerifying(true);
-    
-    try {
-      const res = await axios.get('/api/auth/current');
-      const freshUserData = res.data.user;
-      
-      // Update user with fresh data from server
-      setUser(freshUserData);
-      setCachedUser(freshUserData);
-    } catch (err) {
-      console.error('Session verification failed:', err);
-      
-      // Only clear session if we get a 401/403 response
-      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-        setUser(null);
-        clearCachedUser();
-      } else {
-        // For network errors, keep the cached user if available
-        if (!user) {
-          setUser(null);
-          clearCachedUser();
-        }
+  // The current user's data
+  const [user, setUser] = useState(() => {
+    const cached = localStorage.getItem('user');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        return null;
       }
-    } finally {
-      setLoading(false);
-      setIsVerifying(false);
     }
-  }, [user, isVerifying]);
+    return null;
+  });
+  // const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // ===== CHANGE 5: Verify session on mount =====
+  // Managing user sessions, by making requests to the backend to check if the user is logged in, and updating the state accordingly, will go here
+
   useEffect(() => {
-    // Always verify session with server, even if we have cached user
-    verifySession();
-  }, [verifySession]);
+    // Check if the user is logged in by making a request to the backend, and update the state accordingly
+    const fetchUserSession = async () => {
+      try {
+        if(user == null){
+          const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
+          setUser(res.data.user); // If the session is valid, set the user state to the user data returned from the backend
+          localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
+        }
+        // Make a request to the backend to check for a valid session or token
+        // const res = await axios.get('/api/auth/current'); // Getting the logged in user from the backend
+        setUser(JSON.parse(localStorage.getItem('user'))); // If the session is valid, set the user state to the user data returned from the backend
+        // localStorage.setItem('user', JSON.stringify(res.data.user));  //Store current user's data on local storage
+      } catch (err) {
+        setUser(null);
+        // setError("Failed to check user session");
+        console.log("failed to fetch user session");
+      }
+      finally {
+        setLoading(false); // Set loading to false after checking the session
+      }
+    };
 
-  // ===== CHANGE 6: Custom setUser function that updates cache =====
-  const handleSetUser = useCallback((newUser) => {
-    setUser(newUser);
-    if (newUser) {
-      setCachedUser(newUser);
-    } else {
-      clearCachedUser();
-    }
+    fetchUserSession();
   }, []);
 
-  // ===== CHANGE 7: Loading state =====
   if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '1.2rem'
-      }}>
-        <div>Loading...</div>
-      </div>
-    );
+    return <div>Loading...</div>; // Show a loading state while checking the session
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* ===== CHANGE 8: Home route with proper redirect ===== */}
-        <Route 
-          path="/" 
-          element={
-            user ? <Navigate to="/dashboard" replace /> : <Home setUser={handleSetUser} />
-          } 
-        />
-        
-        {/* ===== CHANGE 9: Dashboard route with protection ===== */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute user={user}>
-              <Dashboard user={user} setUser={handleSetUser} />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* ===== CHANGE 10: Catch-all route ===== */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="/" element={user ? <Dashboard user={user} setUser={setUser} /> : <Home setUser={setUser} />} />
+        { user && <Route path="/dashboard" element={<Dashboard user={user} setUser={setUser} />}/> } {/* Only render the dashboard route if the user is logged in */ }
+        <Route path="*" element={<NotFound />} /> {/* A catch-all route for undefined paths */ }
       </Routes>
     </BrowserRouter>
-  );
-};
+  )
+}
 
-export default App;
+export default App
