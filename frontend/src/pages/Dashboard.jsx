@@ -190,7 +190,7 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -377,7 +377,7 @@ const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chat
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-violet-400 animate-pulse' />
@@ -564,7 +564,7 @@ const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaHospital size={60} className='mx-auto mb-4 text-amber-400 animate-pulse' />
@@ -747,7 +747,7 @@ const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessa
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -988,7 +988,7 @@ const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages,
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -4297,7 +4297,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
         {/* --- Chat Room Section --- */}
         {activeTab === 'chat' && (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
         )}
       </main>
     </div>
@@ -4468,20 +4468,21 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 
   /**
    * Get the count of unread messages from a specific contact
-   * This function is used to display the unread badge on contacts
+   * Only counts messages that have been received while the conversation was NOT open
+   * Unread = messages where the current user is the recipient and the message is not marked as read
    */
   const getUnreadCount = (contactChatId) => {
     return chatMessages.filter(m => 
       m.sender === contactChatId && 
       m.recipient === myChatId && 
-      !m.read
+      !m.read // Only count messages that haven't been marked as read
     ).length;
   };
 
   /**
    * Mark all unread messages from the current contact as read
    * This function is called when a conversation is opened
-   * It ensures the unread badge is removed from the contact
+   * It ensures the unread badge is removed from the contact immediately
    */
   const markMessagesAsRead = React.useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
@@ -4502,7 +4503,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       });
 
       // Update local chatMessages state to mark them as read
-      // This will trigger a re-render and remove the unread badge
+      // This will trigger a re-render and immediately remove the unread badge
       if (setChatMessages) {
         setChatMessages(prev => 
           prev.map(msg => 
@@ -4611,14 +4612,12 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
                   isSelected
                     ? `${colors.primaryBg} text-black font-semibold` // Highlight selected contact
-                    : unreadCount > 0
-                      ? 'bg-white/10 hover:bg-white/15 text-gray-200 border border-amber-500/30' // Highlight contacts with unread messages
-                      : 'hover:bg-white/5 text-gray-300' // Normal state
+                    : 'hover:bg-white/5 text-gray-300' // Normal state - NO highlighting for unread messages
                 }`}
               >
                 <div className="flex justify-between items-center w-full">
                   <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
-                  {/* Display unread count badge - only show if there are unread messages and contact is not selected */}
+                  {/* Display unread count badge - ONLY show if there are unread messages and contact is NOT selected */}
                   {unreadCount > 0 && !isSelected && (
                     <span className="ml-2 bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0">
                       {unreadCount}
@@ -4651,7 +4650,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
-              {/* No "New messages" text displayed here */}
+              {/* No "New messages" text displayed here - only contact info */}
             </div>
 
             {/* Chat Messages Container - Auto-scrolling message list */}
