@@ -4373,7 +4373,7 @@ const NotificationPanel = ({ notifications, socket }) => {
   );
 };
 
-// --- Reusable Chat Room ---
+// --- Reusable Chat Room Component---
 // This component handles real-time messaging between users with role-based theming
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   // State for the currently selected contact
@@ -4464,6 +4464,17 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       return false;
     });
   }, [chatMessages, selectedContact, myChatId, user.organization, role]);
+
+  /**
+   * Get the count of unread messages from a specific contact
+   */
+  const getUnreadCount = (contactChatId) => {
+    return chatMessages.filter(m => 
+      m.sender === contactChatId && 
+      m.recipient === myChatId && 
+      !m.read
+    ).length;
+  };
 
   /**
    * Mark all unread messages from the current contact as read
@@ -4567,18 +4578,6 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     setMessageInput('');
   };
 
-  /**
-   * Check if a contact has unread messages
-   * This function is used to determine if the contact should be highlighted
-   */
-  const hasUnreadMessages = (contactChatId) => {
-    return chatMessages.some(m => 
-      m.sender === contactChatId && 
-      m.recipient === myChatId && 
-      !m.read
-    );
-  };
-
   return (
     <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
       {/* Contact List Sidebar - Shows all available contacts */}
@@ -4591,8 +4590,8 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
         </div>
         <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
           {contacts.map(contact => {
-            // Check if this contact has any unread messages
-            const hasUnread = hasUnreadMessages(contact.chat_id);
+            // Get the count of unread messages for this contact
+            const unreadCount = getUnreadCount(contact.chat_id);
             // Check if this contact is currently selected
             const isSelected = selectedContact?.chat_id === contact.chat_id;
             
@@ -4603,12 +4602,20 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
                   isSelected
                     ? `${colors.primaryBg} text-black font-semibold` // Highlight selected contact
-                    : hasUnread 
+                    : unreadCount > 0
                       ? 'bg-white/10 hover:bg-white/15 text-gray-200 border border-amber-500/30' // Highlight contacts with unread messages
                       : 'hover:bg-white/5 text-gray-300' // Normal state
                 }`}
               >
-                <span className='text-xs font-bold truncate'>{contact.fullname}</span>
+                <div className="flex justify-between items-center w-full">
+                  <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
+                  {/* Display unread count badge - only show if there are unread messages and contact is not selected */}
+                  {unreadCount > 0 && !isSelected && (
+                    <span className="ml-2 bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className={`text-[10px] uppercase tracking-wider truncate ${
                   isSelected ? 'text-black/70' : 'text-gray-500'
                 }`}>
@@ -4635,14 +4642,14 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
-              {/* Show unread count only for the currently selected conversation */}
-              {/* <div className="flex items-center gap-3">
-                {hasUnreadMessages(selectedContact.chat_id) && (
+              {/* Show unread count in header when conversation is opened */}
+              <div className="flex items-center gap-3">
+                {getUnreadCount(selectedContact.chat_id) > 0 && (
                   <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30">
-                    New messages
+                    {getUnreadCount(selectedContact.chat_id)} unread
                   </span>
                 )}
-              </div> */}
+              </div>
             </div>
 
             {/* Chat Messages Container - Auto-scrolling message list */}
@@ -4718,7 +4725,6 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     </div>
   );
 };
-
 // --- Main Dashboard Dispatcher ---
 const Dashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
