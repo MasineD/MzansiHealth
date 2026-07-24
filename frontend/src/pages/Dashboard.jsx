@@ -4560,7 +4560,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: true // Messages we send are immediately marked as read
+      read: false // Messages we send are immediately marked as read
     };
 
     // Optimistically add message to local state for immediate display
@@ -4569,7 +4569,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     // Emit the message to the server via Socket.IO
     socket.emit('send_message', {
       sender: myChatId,
-      senderName: user.fullname,
+      senderName: user?.fullname,
       recipient: selectedContact.chat_id,
       message: messageInput.trim()
     });
