@@ -4374,7 +4374,6 @@ const NotificationPanel = ({ notifications, socket }) => {
 };
 
 // --- Reusable Chat Room ---
-// --- Reusable Chat Room Component ---
 // This component handles real-time messaging between users with role-based theming
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   // State for the currently selected contact
@@ -4637,13 +4636,13 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
               {/* Show unread count only for the currently selected conversation */}
-              <div className="flex items-center gap-3">
+              {/* <div className="flex items-center gap-3">
                 {hasUnreadMessages(selectedContact.chat_id) && (
                   <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30">
                     New messages
                   </span>
                 )}
-              </div>
+              </div> */}
             </div>
 
             {/* Chat Messages Container - Auto-scrolling message list */}
