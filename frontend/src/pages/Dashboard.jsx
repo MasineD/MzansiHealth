@@ -190,7 +190,7 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts}/>
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -377,7 +377,7 @@ const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chat
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-violet-400 animate-pulse' />
@@ -564,7 +564,7 @@ const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaHospital size={60} className='mx-auto mb-4 text-amber-400 animate-pulse' />
@@ -747,7 +747,7 @@ const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessa
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUser size={60} className='mx-auto mb-4 text-purple-400 animate-pulse' />
@@ -988,7 +988,7 @@ const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages,
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUsers size={60} className='mx-auto mb-4 text-orange-400 animate-pulse' />
@@ -4297,7 +4297,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
         {/* --- Chat Room Section --- */}
         {activeTab === 'chat' && (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} setChatMessages={setChatMessages}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         )}
       </main>
     </div>
