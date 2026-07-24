@@ -1,4 +1,3 @@
-Acting as a professional software developer, read through the code below. Modify the code for ChatRoom according to the following instructions. Do not count unread or new messages as the total messages for each conversation. Count the unread messages as new messages for each conversations. Meaning new messages or unread messages are those that have been received while the conversation is not openned. When and After the conversation has been opened, the number of unread messages changes to zero and is no longer displayed. Instead of highlighting a contact or conversation that has new messages, only show the number of new or unread messages.
 // ============= Dashboard Component with Role-Based Views and Premium Aesthetics =============
 import React from 'react';
 import axios from 'axios';
