@@ -1,3 +1,4 @@
+Acting as a professional software developer, read through the code below. Modify the code for ChatRoom according to the following instructions. Do not count unread or new messages as the total messages for each conversation. Count the unread messages as new messages for each conversations. Meaning new messages or unread messages are those that have been received while the conversation is not openned. When and After the conversation has been opened, the number of unread messages changes to zero and is no longer displayed. Instead of highlighting a contact or conversation that has new messages, only show the number of new or unread messages.
 // ============= Dashboard Component with Role-Based Views and Premium Aesthetics =============
 import React from 'react';
 import axios from 'axios';
@@ -190,7 +191,7 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
         ) : activeTab === 'reviews' ? (
           <ReviewsSection user={user} />
         ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts}/>
+          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
         ) : (
           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
             <FaUserMd size={60} className='mx-auto mb-4 text-emerald-400 animate-pulse' />
@@ -4468,21 +4469,20 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 
   /**
    * Get the count of unread messages from a specific contact
-   * Only counts messages that have been received while the conversation was NOT open
-   * Unread = messages where the current user is the recipient and the message is not marked as read
+   * This function is used to display the unread badge on contacts
    */
   const getUnreadCount = (contactChatId) => {
     return chatMessages.filter(m => 
       m.sender === contactChatId && 
       m.recipient === myChatId && 
-      !m.read // Only count messages that haven't been marked as read
+      !m.read
     ).length;
   };
 
   /**
    * Mark all unread messages from the current contact as read
    * This function is called when a conversation is opened
-   * It ensures the unread badge is removed from the contact immediately
+   * It ensures the unread badge is removed from the contact
    */
   const markMessagesAsRead = React.useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
@@ -4503,7 +4503,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       });
 
       // Update local chatMessages state to mark them as read
-      // This will trigger a re-render and immediately remove the unread badge
+      // This will trigger a re-render and remove the unread badge
       if (setChatMessages) {
         setChatMessages(prev => 
           prev.map(msg => 
@@ -4612,12 +4612,14 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
                   isSelected
                     ? `${colors.primaryBg} text-black font-semibold` // Highlight selected contact
-                    : 'hover:bg-white/5 text-gray-300' // Normal state - NO highlighting for unread messages
+                    : unreadCount > 0
+                      ? 'bg-white/10 hover:bg-white/15 text-gray-200 border border-amber-500/30' // Highlight contacts with unread messages
+                      : 'hover:bg-white/5 text-gray-300' // Normal state
                 }`}
               >
                 <div className="flex justify-between items-center w-full">
                   <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
-                  {/* Display unread count badge - ONLY show if there are unread messages and contact is NOT selected */}
+                  {/* Display unread count badge - only show if there are unread messages and contact is not selected */}
                   {unreadCount > 0 && !isSelected && (
                     <span className="ml-2 bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center flex-shrink-0">
                       {unreadCount}
@@ -4650,7 +4652,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
-              {/* No "New messages" text displayed here - only contact info */}
+              {/* No "New messages" text displayed here */}
             </div>
 
             {/* Chat Messages Container - Auto-scrolling message list */}
