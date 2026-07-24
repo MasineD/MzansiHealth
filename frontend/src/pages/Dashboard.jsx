@@ -4374,6 +4374,7 @@ const NotificationPanel = ({ notifications, socket }) => {
 };
 
 // --- Reusable Chat Room Component---
+// --- Reusable Chat Room Component ---
 // This component handles real-time messaging between users with role-based theming
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   // State for the currently selected contact
@@ -4467,6 +4468,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 
   /**
    * Get the count of unread messages from a specific contact
+   * This function is used to display the unread badge on contacts
    */
   const getUnreadCount = (contactChatId) => {
     return chatMessages.filter(m => 
@@ -4479,6 +4481,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
   /**
    * Mark all unread messages from the current contact as read
    * This function is called when a conversation is opened
+   * It ensures the unread badge is removed from the contact
    */
   const markMessagesAsRead = React.useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
@@ -4490,6 +4493,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       !m.read
     );
 
+    // Only proceed if there are unread messages
     if (unreadMessages.length > 0) {
       // Emit event to server to mark messages as read
       socket.emit('mark_messages_read', {
@@ -4498,6 +4502,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       });
 
       // Update local chatMessages state to mark them as read
+      // This will trigger a re-render and remove the unread badge
       if (setChatMessages) {
         setChatMessages(prev => 
           prev.map(msg => 
@@ -4510,6 +4515,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
         );
       }
 
+      // Prevent multiple mark read calls for the same conversation
       setHasMarkedRead(true);
     }
   }, [selectedContact, socket, chatMessages, myChatId, hasMarkedRead, setChatMessages]);
@@ -4526,10 +4532,13 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
   /**
    * Mark messages as read when a contact is selected
    * This triggers the read receipt process for the opened conversation
+   * The unread badge will be removed once messages are marked as read
    */
   React.useEffect(() => {
     if (selectedContact) {
+      // Reset the mark read flag when a new contact is selected
       setHasMarkedRead(false);
+      // Mark messages as read for the selected contact
       markMessagesAsRead();
     }
   }, [selectedContact, markMessagesAsRead]);
@@ -4556,7 +4565,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     const newMessage = {
       id: Date.now().toString(),
       sender: myChatId,
-      senderName: user?.fullname,
+      senderName: user.fullname,
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -4569,7 +4578,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     // Emit the message to the server via Socket.IO
     socket.emit('send_message', {
       sender: myChatId,
-      senderName: user?.fullname,
+      senderName: user.fullname,
       recipient: selectedContact.chat_id,
       message: messageInput.trim()
     });
@@ -4580,7 +4589,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 
   return (
     <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
-      {/* Contact List Sidebar - Shows all available contacts */}
+      {/* Contact List Sidebar - Shows all available contacts with unread badges */}
       <div className='w-1/3 border-r border-white/10 flex flex-col bg-black/20'>
         <div className='p-4 border-b border-white/10'>
           <h2 className='text-sm font-bold flex items-center gap-2'>
@@ -4636,20 +4645,13 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       <div className='flex-1 flex flex-col bg-black/40'>
         {selectedContact ? (
           <>
-            {/* Chat Header - Shows contact info and status */}
+            {/* Chat Header - Shows contact info */}
             <div className='p-4 border-b border-white/10 bg-white/5 flex items-center justify-between'>
               <div>
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
-              {/* Show unread count in header when conversation is opened */}
-              <div className="flex items-center gap-3">
-                {getUnreadCount(selectedContact.chat_id) > 0 && (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30">
-                    {getUnreadCount(selectedContact.chat_id)} unread
-                  </span>
-                )}
-              </div>
+              {/* No "New messages" text displayed here */}
             </div>
 
             {/* Chat Messages Container - Auto-scrolling message list */}
