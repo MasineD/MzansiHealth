@@ -4374,10 +4374,12 @@ const NotificationPanel = ({ notifications, socket }) => {
 };
 
 // --- Reusable Chat Room ---
+// --- Reusable Chat Room ---
 const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
   const [selectedContact, setSelectedContact] = React.useState(null);
   const [messageInput, setMessageInput] = React.useState('');
   const chatContainerRef = React.useRef(null);
+  const [localMessages, setLocalMessages] = React.useState([]);
 
   const role = user.role?.toLowerCase();
   const myChatId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
@@ -4422,16 +4424,63 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
 
   const colors = getRoleColors(user.role);
 
+  // Filter messages for current conversation
+  const getActiveMessages = React.useCallback(() => {
+    if (!selectedContact) return [];
+    
+    return chatMessages.filter(m => {
+      // 1. Direct messages
+      if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+      if (m.sender === selectedContact?.chat_id && m.recipient === myChatId) return true;
+
+      // 2. Admin to Group announcements (visible in conversation log with the sending admin)
+      if (selectedContact?.role === 'admin' && m.sender === selectedContact?.chat_id) {
+        const org = user.organization?.toLowerCase().trim();
+        if (org) {
+          if (m.recipient === `all_patients_${org}` && role === 'patient') return true;
+          if (m.recipient === `all_staff_${org}` && role === 'staff') return true;
+        }
+      }
+
+      // 3. For admin viewing their own sent group messages in the group virtual chat
+      if (role === 'admin' && selectedContact?.role === 'group') {
+        if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
+      }
+
+      return false;
+    });
+  }, [chatMessages, selectedContact, myChatId, user.organization, role]);
+
+  // Update local messages whenever chatMessages or selectedContact changes
+  React.useEffect(() => {
+    const filtered = getActiveMessages();
+    setLocalMessages(filtered);
+  }, [chatMessages, selectedContact, getActiveMessages]);
+
+  // Scroll to bottom when messages change
   React.useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [chatMessages, selectedContact]);
+  }, [localMessages]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!messageInput.trim() || !selectedContact || !socket) return;
 
+    const newMessage = {
+      id: Date.now().toString(),
+      sender: myChatId,
+      senderName: user.fullname,
+      recipient: selectedContact.chat_id,
+      message: messageInput.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // Optimistically add message to local state
+    setLocalMessages(prev => [...prev, newMessage]);
+
+    // Emit to server
     socket.emit('send_message', {
       sender: myChatId,
       senderName: user.fullname,
@@ -4441,29 +4490,6 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
 
     setMessageInput('');
   };
-
-  // Filter messages for current conversation (including direct messages and group announcements)
-  const activeMessages = chatMessages.filter(m => {
-    // 1. Direct messages
-    if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
-    if (m.sender === selectedContact?.chat_id && m.recipient === myChatId) return true;
-
-    // 2. Admin to Group announcements (visible in conversation log with the sending admin)
-    if (selectedContact?.role === 'admin' && m.sender === selectedContact?.chat_id) {
-      const org = user.organization?.toLowerCase().trim();
-      if (org) {
-        if (m.recipient === `all_patients_${org}` && role === 'patient') return true;
-        if (m.recipient === `all_staff_${org}` && role === 'staff') return true;
-      }
-    }
-
-    // 3. For admin viewing their own sent group messages in the group virtual chat
-    if (role === 'admin' && selectedContact?.role === 'group') {
-      if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
-    }
-
-    return false;
-  });
 
   return (
     <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
@@ -4476,24 +4502,40 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
           </h2>
         </div>
         <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
-          {contacts.map(contact => (
-            <button
-              key={contact.chat_id}
-              onClick={() => setSelectedContact(contact)}
-              className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
-                selectedContact?.chat_id === contact.chat_id
-                  ? `${colors.primaryBg} text-black font-semibold`
-                  : 'hover:bg-white/5 text-gray-300'
-              }`}
-            >
-              <span className='text-xs font-bold'>{contact.fullname}</span>
-              <span className={`text-[10px] uppercase tracking-wider ${
-                selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
-              }`}>
-                {contact.role} - {contact.organization}
-              </span>
-            </button>
-          ))}
+          {contacts.map(contact => {
+            // Count unread messages for this contact
+            const unreadCount = chatMessages.filter(m => 
+              m.sender === contact.chat_id && 
+              m.recipient === myChatId && 
+              !m.read
+            ).length;
+
+            return (
+              <button
+                key={contact.chat_id}
+                onClick={() => setSelectedContact(contact)}
+                className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 relative ${
+                  selectedContact?.chat_id === contact.chat_id
+                    ? `${colors.primaryBg} text-black font-semibold`
+                    : 'hover:bg-white/5 text-gray-300'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className='text-xs font-bold'>{contact.fullname}</span>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] uppercase tracking-wider ${
+                  selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
+                }`}>
+                  {contact.role} - {contact.organization}
+                </span>
+              </button>
+            );
+          })}
           {contacts.length === 0 && (
             <div className='text-center py-8 text-gray-500 text-xs'>
               No contacts found.
@@ -4512,26 +4554,36 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
+              <span className="text-[10px] text-gray-500">
+                {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
             {/* Chat list */}
             <div ref={chatContainerRef} className='flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3'>
-              {activeMessages.map(msg => {
+              {localMessages.map(msg => {
                 const isMe = msg.sender === myChatId;
                 return (
-                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
                     <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-xs ${
                       isMe 
                         ? `${colors.bubbleBg} text-white rounded-tr-none` 
                         : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
                     }`}>
-                      <p>{msg.message}</p>
-                      <span className='block text-[8px] text-right mt-1 opacity-60'>{msg.timestamp}</span>
+                      {!isMe && (
+                        <span className="block text-[8px] font-bold text-gray-400 mb-1">
+                          {msg.senderName || 'Unknown'}
+                        </span>
+                      )}
+                      <p className="break-words">{msg.message}</p>
+                      <span className='block text-[8px] text-right mt-1 opacity-60'>
+                        {msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                   </div>
                 );
               })}
-              {activeMessages.length === 0 && (
+              {localMessages.length === 0 && (
                 <div className='text-center py-20 text-gray-500 text-xs'>
                   No messages yet. Send a message to start the conversation!
                 </div>
