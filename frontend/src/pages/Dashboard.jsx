@@ -4375,11 +4375,13 @@ const NotificationPanel = ({ notifications, socket }) => {
 
 // --- Reusable Chat Room ---
 // --- Reusable Chat Room ---
-const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
+// --- Reusable Chat Room ---
+const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   const [selectedContact, setSelectedContact] = React.useState(null);
   const [messageInput, setMessageInput] = React.useState('');
   const chatContainerRef = React.useRef(null);
   const [localMessages, setLocalMessages] = React.useState([]);
+  const [hasMarkedRead, setHasMarkedRead] = React.useState(false);
 
   const role = user.role?.toLowerCase();
   const myChatId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
@@ -4451,11 +4453,54 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
     });
   }, [chatMessages, selectedContact, myChatId, user.organization, role]);
 
+  // Mark messages as read when a conversation is opened
+  const markMessagesAsRead = React.useCallback(() => {
+    if (!selectedContact || !socket || hasMarkedRead) return;
+
+    // Find unread messages from this contact
+    const unreadMessages = chatMessages.filter(m => 
+      m.sender === selectedContact.chat_id && 
+      m.recipient === myChatId && 
+      !m.read
+    );
+
+    if (unreadMessages.length > 0) {
+      // Emit event to mark messages as read
+      socket.emit('mark_messages_read', {
+        sender: selectedContact.chat_id,
+        recipient: myChatId
+      });
+
+      // Update local chatMessages state to mark them as read
+      if (setChatMessages) {
+        setChatMessages(prev => 
+          prev.map(msg => 
+            msg.sender === selectedContact.chat_id && 
+            msg.recipient === myChatId && 
+            !msg.read
+              ? { ...msg, read: true }
+              : msg
+          )
+        );
+      }
+
+      setHasMarkedRead(true);
+    }
+  }, [selectedContact, socket, chatMessages, myChatId, hasMarkedRead, setChatMessages]);
+
   // Update local messages whenever chatMessages or selectedContact changes
   React.useEffect(() => {
     const filtered = getActiveMessages();
     setLocalMessages(filtered);
   }, [chatMessages, selectedContact, getActiveMessages]);
+
+  // Mark messages as read when a contact is selected
+  React.useEffect(() => {
+    if (selectedContact) {
+      setHasMarkedRead(false);
+      markMessagesAsRead();
+    }
+  }, [selectedContact, markMessagesAsRead]);
 
   // Scroll to bottom when messages change
   React.useEffect(() => {
@@ -4474,7 +4519,8 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
       senderName: user.fullname,
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: true // Messages we send are always "read"
     };
 
     // Optimistically add message to local state
@@ -4491,6 +4537,15 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
     setMessageInput('');
   };
 
+  // Get unread count for a contact
+  const getUnreadCount = (contactChatId) => {
+    return chatMessages.filter(m => 
+      m.sender === contactChatId && 
+      m.recipient === myChatId && 
+      !m.read
+    ).length;
+  };
+
   return (
     <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
       {/* Contact list side */}
@@ -4503,13 +4558,8 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
         </div>
         <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
           {contacts.map(contact => {
-            // Count unread messages for this contact
-            const unreadCount = chatMessages.filter(m => 
-              m.sender === contact.chat_id && 
-              m.recipient === myChatId && 
-              !m.read
-            ).length;
-
+            const unreadCount = getUnreadCount(contact.chat_id);
+            
             return (
               <button
                 key={contact.chat_id}
@@ -4521,18 +4571,26 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
                 }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className='text-xs font-bold'>{contact.fullname}</span>
+                  <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
                   {unreadCount > 0 && (
-                    <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    <span className={`ml-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0 animate-pulse`}>
                       {unreadCount}
                     </span>
                   )}
                 </div>
-                <span className={`text-[10px] uppercase tracking-wider ${
+                <span className={`text-[10px] uppercase tracking-wider truncate ${
                   selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
                 }`}>
                   {contact.role} - {contact.organization}
                 </span>
+                {unreadCount > 0 && selectedContact?.chat_id !== contact.chat_id && (
+                  <div className="absolute -top-1 -right-1">
+                    <span className="flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                  </div>
+                )}
               </button>
             );
           })}
@@ -4554,15 +4612,24 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
-              <span className="text-[10px] text-gray-500">
-                {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
-              </span>
+              <div className="flex items-center gap-3">
+                {getUnreadCount(selectedContact.chat_id) > 0 && (
+                  <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/30">
+                    {getUnreadCount(selectedContact.chat_id)} unread
+                  </span>
+                )}
+                <span className="text-[10px] text-gray-500">
+                  {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
 
             {/* Chat list */}
             <div ref={chatContainerRef} className='flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3'>
-              {localMessages.map(msg => {
+              {localMessages.map((msg, index) => {
                 const isMe = msg.sender === myChatId;
+                const showSenderName = !isMe && (index === 0 || localMessages[index - 1]?.sender !== msg.sender);
+                
                 return (
                   <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
                     <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-xs ${
@@ -4570,15 +4637,23 @@ const ChatRoom = ({ user, socket, chatMessages, contacts }) => {
                         ? `${colors.bubbleBg} text-white rounded-tr-none` 
                         : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
                     }`}>
-                      {!isMe && (
+                      {!isMe && showSenderName && (
                         <span className="block text-[8px] font-bold text-gray-400 mb-1">
                           {msg.senderName || 'Unknown'}
                         </span>
                       )}
                       <p className="break-words">{msg.message}</p>
-                      <span className='block text-[8px] text-right mt-1 opacity-60'>
-                        {msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className="flex items-center justify-end gap-1 mt-1">
+                        <span className='text-[8px] opacity-60'>
+                          {msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {isMe && msg.read && (
+                          <span className="text-[8px] text-emerald-400">✓✓</span>
+                        )}
+                        {isMe && !msg.read && (
+                          <span className="text-[8px] text-gray-400">✓</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
