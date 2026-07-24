@@ -4374,16 +4374,28 @@ const NotificationPanel = ({ notifications, socket }) => {
 };
 
 // --- Reusable Chat Room ---
+// --- Reusable Chat Room Component ---
+// This component handles real-time messaging between users with role-based theming
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
+  // State for the currently selected contact
   const [selectedContact, setSelectedContact] = React.useState(null);
+  // State for the current message input
   const [messageInput, setMessageInput] = React.useState('');
+  // Reference to the chat container for auto-scrolling
   const chatContainerRef = React.useRef(null);
+  // Local messages for the current conversation
   const [localMessages, setLocalMessages] = React.useState([]);
+  // Track if messages have been marked as read for the current conversation
   const [hasMarkedRead, setHasMarkedRead] = React.useState(false);
 
+  // Determine the user's role and create a unique chat ID
   const role = user.role?.toLowerCase();
   const myChatId = `${role === 'admin' || role === 'staff' ? 'user' : role}_${user.id}`;
 
+  /**
+   * Get role-based color scheme for UI theming
+   * Each role has distinct colors for visual differentiation
+   */
   const getRoleColors = (role) => {
     switch (role?.toLowerCase()) {
       case 'admin':
@@ -4424,12 +4436,15 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 
   const colors = getRoleColors(user.role);
 
-  // Filter messages for current conversation
+  /**
+   * Filter messages for the current conversation
+   * Includes direct messages, group announcements, and admin broadcasts
+   */
   const getActiveMessages = React.useCallback(() => {
     if (!selectedContact) return [];
     
     return chatMessages.filter(m => {
-      // 1. Direct messages
+      // 1. Direct messages between two users
       if (m.sender === myChatId && m.recipient === selectedContact?.chat_id) return true;
       if (m.sender === selectedContact?.chat_id && m.recipient === myChatId) return true;
 
@@ -4451,11 +4466,14 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     });
   }, [chatMessages, selectedContact, myChatId, user.organization, role]);
 
-  // Mark messages as read when a conversation is opened
+  /**
+   * Mark all unread messages from the current contact as read
+   * This function is called when a conversation is opened
+   */
   const markMessagesAsRead = React.useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
 
-    // Find unread messages from this contact
+    // Find all unread messages from this contact
     const unreadMessages = chatMessages.filter(m => 
       m.sender === selectedContact.chat_id && 
       m.recipient === myChatId && 
@@ -4463,7 +4481,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     );
 
     if (unreadMessages.length > 0) {
-      // Emit event to mark messages as read
+      // Emit event to server to mark messages as read
       socket.emit('mark_messages_read', {
         sender: selectedContact.chat_id,
         recipient: myChatId
@@ -4486,13 +4504,19 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     }
   }, [selectedContact, socket, chatMessages, myChatId, hasMarkedRead, setChatMessages]);
 
-  // Update local messages whenever chatMessages or selectedContact changes
+  /**
+   * Update local messages whenever chatMessages or selectedContact changes
+   * This ensures the conversation view stays in sync with the global state
+   */
   React.useEffect(() => {
     const filtered = getActiveMessages();
     setLocalMessages(filtered);
   }, [chatMessages, selectedContact, getActiveMessages]);
 
-  // Mark messages as read when a contact is selected
+  /**
+   * Mark messages as read when a contact is selected
+   * This triggers the read receipt process for the opened conversation
+   */
   React.useEffect(() => {
     if (selectedContact) {
       setHasMarkedRead(false);
@@ -4500,17 +4524,25 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     }
   }, [selectedContact, markMessagesAsRead]);
 
-  // Scroll to bottom when messages change
+  /**
+   * Auto-scroll to the bottom of the chat when new messages arrive
+   * This provides a smooth user experience when receiving or sending messages
+   */
   React.useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [localMessages]);
 
+  /**
+   * Handle sending a new message
+   * Implements optimistic updates for immediate UI feedback
+   */
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!messageInput.trim() || !selectedContact || !socket) return;
 
+    // Create a new message object with optimistic ID and timestamp
     const newMessage = {
       id: Date.now().toString(),
       sender: myChatId,
@@ -4518,13 +4550,13 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: true // Messages we send are always "read"
+      read: true // Messages we send are immediately marked as read
     };
 
-    // Optimistically add message to local state
+    // Optimistically add message to local state for immediate display
     setLocalMessages(prev => [...prev, newMessage]);
 
-    // Emit to server
+    // Emit the message to the server via Socket.IO
     socket.emit('send_message', {
       sender: myChatId,
       senderName: user.fullname,
@@ -4532,21 +4564,25 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       message: messageInput.trim()
     });
 
+    // Clear the input field
     setMessageInput('');
   };
 
-  // Get unread count for a contact
-  const getUnreadCount = (contactChatId) => {
-    return chatMessages.filter(m => 
+  /**
+   * Check if a contact has unread messages
+   * This function is used to determine if the contact should be highlighted
+   */
+  const hasUnreadMessages = (contactChatId) => {
+    return chatMessages.some(m => 
       m.sender === contactChatId && 
       m.recipient === myChatId && 
       !m.read
-    ).length;
+    );
   };
 
   return (
     <div className='max-w-6xl mx-auto h-[550px] flex bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-xl'>
-      {/* Contact list side */}
+      {/* Contact List Sidebar - Shows all available contacts */}
       <div className='w-1/3 border-r border-white/10 flex flex-col bg-black/20'>
         <div className='p-4 border-b border-white/10'>
           <h2 className='text-sm font-bold flex items-center gap-2'>
@@ -4556,35 +4592,29 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
         </div>
         <div className='flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1'>
           {contacts.map(contact => {
-            const unreadCount = getUnreadCount(contact.chat_id);
+            // Check if this contact has any unread messages
+            const hasUnread = hasUnreadMessages(contact.chat_id);
+            // Check if this contact is currently selected
+            const isSelected = selectedContact?.chat_id === contact.chat_id;
             
             return (
               <button
                 key={contact.chat_id}
                 onClick={() => setSelectedContact(contact)}
-                className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 relative ${
-                  selectedContact?.chat_id === contact.chat_id
-                    ? `${colors.primaryBg} text-black font-semibold`
-                    : 'hover:bg-white/5 text-gray-300'
+                className={`w-full text-left p-3 rounded-xl flex flex-col transition-all duration-300 ${
+                  isSelected
+                    ? `${colors.primaryBg} text-black font-semibold` // Highlight selected contact
+                    : hasUnread 
+                      ? 'bg-white/10 hover:bg-white/15 text-gray-200 border border-amber-500/30' // Highlight contacts with unread messages
+                      : 'hover:bg-white/5 text-gray-300' // Normal state
                 }`}
               >
-                <div className="flex justify-between items-center">
-                  <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
-                  
-                </div>
+                <span className='text-xs font-bold truncate'>{contact.fullname}</span>
                 <span className={`text-[10px] uppercase tracking-wider truncate ${
-                  selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
+                  isSelected ? 'text-black/70' : 'text-gray-500'
                 }`}>
                   {contact.role} - {contact.organization}
                 </span>
-                {unreadCount > 0 && selectedContact?.chat_id !== contact.chat_id && (
-                  <div className="absolute -top-1 -right-1">
-                    <span className="flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                    </span>
-                  </div>
-                )}
               </button>
             );
           })}
@@ -4596,32 +4626,31 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
         </div>
       </div>
 
-      {/* Message window side */}
+      {/* Chat Message Window - Displays the selected conversation */}
       <div className='flex-1 flex flex-col bg-black/40'>
         {selectedContact ? (
           <>
-            {/* Header */}
+            {/* Chat Header - Shows contact info and status */}
             <div className='p-4 border-b border-white/10 bg-white/5 flex items-center justify-between'>
               <div>
                 <h3 className='text-sm font-bold text-white'>{selectedContact.fullname}</h3>
                 <span className='text-[10px] text-gray-400 uppercase tracking-wider'>{selectedContact.role}</span>
               </div>
+              {/* Show unread count only for the currently selected conversation */}
               <div className="flex items-center gap-3">
-                {getUnreadCount(selectedContact.chat_id) > 0 && (
-                  <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/30">
-                    {getUnreadCount(selectedContact.chat_id)} unread
+                {hasUnreadMessages(selectedContact.chat_id) && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30">
+                    New messages
                   </span>
                 )}
-                <span className="text-[10px] text-gray-500">
-                  {localMessages.length} message{localMessages.length !== 1 ? 's' : ''}
-                </span>
               </div>
             </div>
 
-            {/* Chat list */}
+            {/* Chat Messages Container - Auto-scrolling message list */}
             <div ref={chatContainerRef} className='flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3'>
               {localMessages.map((msg, index) => {
                 const isMe = msg.sender === myChatId;
+                // Show sender name only for the first message from each sender in a sequence
                 const showSenderName = !isMe && (index === 0 || localMessages[index - 1]?.sender !== msg.sender);
                 
                 return (
@@ -4631,6 +4660,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                         ? `${colors.bubbleBg} text-white rounded-tr-none` 
                         : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
                     }`}>
+                      {/* Show sender name for incoming messages from different senders */}
                       {!isMe && showSenderName && (
                         <span className="block text-[8px] font-bold text-gray-400 mb-1">
                           {msg.senderName || 'Unknown'}
@@ -4641,6 +4671,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
                         <span className='text-[8px] opacity-60'>
                           {msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
+                        {/* Read receipts for sent messages */}
                         {isMe && msg.read && (
                           <span className="text-[8px] text-emerald-400">✓✓</span>
                         )}
@@ -4659,7 +4690,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
               )}
             </div>
 
-            {/* Chat form */}
+            {/* Message Input Form - For sending new messages */}
             <form onSubmit={handleSendMessage} className='p-4 border-t border-white/10 bg-white/5 flex gap-2'>
               <input
                 type='text'
@@ -4678,6 +4709,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
             </form>
           </>
         ) : (
+          // Empty state when no contact is selected
           <div className='flex-1 flex flex-col items-center justify-center text-gray-500 p-8'>
             <FaComments size={40} className='mb-4 text-gray-600' />
             <p className='text-sm'>Select a contact from the left panel to start chatting.</p>
