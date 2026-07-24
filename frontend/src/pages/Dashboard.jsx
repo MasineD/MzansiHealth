@@ -4556,7 +4556,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
     const newMessage = {
       id: Date.now().toString(),
       sender: myChatId,
-      senderName: user.fullname,
+      senderName: user?.fullname,
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
