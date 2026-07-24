@@ -4374,8 +4374,6 @@ const NotificationPanel = ({ notifications, socket }) => {
 };
 
 // --- Reusable Chat Room ---
-// --- Reusable Chat Room ---
-// --- Reusable Chat Room ---
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   const [selectedContact, setSelectedContact] = React.useState(null);
   const [messageInput, setMessageInput] = React.useState('');
@@ -4572,11 +4570,11 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
               >
                 <div className="flex justify-between items-center">
                   <span className='text-xs font-bold truncate flex-1'>{contact.fullname}</span>
-                  {unreadCount > 0 && (
+                  /* {unreadCount > 0 && (
                     <span className={`ml-2 bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0 animate-pulse`}>
                       {unreadCount}
                     </span>
-                  )}
+                  )} */
                 </div>
                 <span className={`text-[10px] uppercase tracking-wider truncate ${
                   selectedContact?.chat_id === contact.chat_id ? 'text-black/70' : 'text-gray-500'
