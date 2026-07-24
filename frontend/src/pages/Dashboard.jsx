@@ -4560,7 +4560,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
       recipient: selectedContact.chat_id,
       message: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: false // Messages we send are immediately marked as read
+      read: true // Messages we send are immediately marked as read
     };
 
     // Optimistically add message to local state for immediate display
