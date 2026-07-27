@@ -13,7 +13,7 @@ import AppointmentsSection from '../components/dashboards/sections/AppointmentsS
 import ChatRoom from '../components/dashboards/sections/ChatRoom.jsx';
 import NotificationPanel from '../components/dashboards/sections/NotificationPanel.jsx';
 import ReferralsSection from '../components/dashboards/sections/ReferralsSection.jsx';
-import SocialWorkerDashboard from '../components/dashboards/SocialWorkerDashboard.jsx'
+// import SocialWorkerDashboard from '../components/dashboards/SocialWorkerDashboard.jsx'
 // import HealthRecordSection from '../components/dashboard/sections/HealthRecordSection.jsx';
 // import OtherDashboard from '../components/dashboards/OtherDashboard';
 // import ChwDashboard from '../components/dashboards/ChwDashboard.jsx';
