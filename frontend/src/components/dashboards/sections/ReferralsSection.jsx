@@ -951,3 +951,5 @@ const ReferralsSection = ({ user }) => {
     </div>
   );
 };
+
+export default ReferralsSection;
