@@ -1,7 +1,13 @@
+// ============ A reusable healthrecords component===========
 import React from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
+
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
+// const API_URL = import.meta.env.VITE_API_BASE_URL;
+axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
+
 const HealthRecordSection = ({ patientId, role, onClose }) => {
   const [data, setData] = React.useState({
     records: [],
