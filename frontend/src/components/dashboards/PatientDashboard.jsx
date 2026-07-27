@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
 import AppointmentsSection from './sections/AppointmentsSection';
 import ChatRoom from './sections/ChatRoom';
-import HealthRecordSection from './sections/HealthRecordSection.jsx';
+import HealthRecordSection from './sections/HealthRecordSection';
 import NotificationPanel from './sections/NotificationPanel';
 import ReferralsSection from './sections/ReferralsSection';
 import ReviewsSection from './sections/ReviewsSection';
