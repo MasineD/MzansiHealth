@@ -1,5 +1,5 @@
 // ============= Dashboard Component with Role-Based Views and Premium Aesthetics =============
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
@@ -18,7 +18,7 @@ axios.defaults.withCredentials = true; // This will allow axios to send cookies 
 
 // --- Staff Dashboard Component ---
 const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
@@ -212,7 +212,7 @@ const StaffDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
 // --- Social Worker Dashboard Component ---
 const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
@@ -398,195 +398,195 @@ const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chat
 };
 
 // --- Other / Support Dashboard Component ---
-const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
+// const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
+//   const [activeTab, setActiveTab] = useState('overview');
 
-  const menuItems = [
-    { id: 'overview', label: 'Overview', icon: <FaTasks /> },
-    { id: 'patients', label: 'Patients', icon: <FaUsers /> },
-    { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
-    { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
-    { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
-    { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
-  ];
+//   const menuItems = [
+//     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
+//     { id: 'patients', label: 'Patients', icon: <FaUsers /> },
+//     { id: 'appointments', label: 'Appointments', icon: <FaCalendarAlt /> },
+//     { id: 'referrals', label: 'Referrals', icon: <FaExchangeAlt /> },
+//     { id: 'reviews', label: 'Reviews', icon: <FaStar /> },
+//     { id: 'chat', label: 'Chat Room', icon: <FaComments /> },
+//   ];
 
-  return (
-    <div className='min-h-screen bg-slate-950 text-white flex flex-col md:flex-row relative overflow-hidden'>
-      {/* Decorative background glow */}
-      <div className='absolute -top-40 -right-40 w-96 h-96 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse'></div>
-      <div className='absolute -bottom-40 -left-40 w-96 h-96 bg-orange-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse delay-1000'></div>
+//   return (
+//     <div className='min-h-screen bg-slate-950 text-white flex flex-col md:flex-row relative overflow-hidden'>
+//       {/* Decorative background glow */}
+//       <div className='absolute -top-40 -right-40 w-96 h-96 bg-amber-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse'></div>
+//       <div className='absolute -bottom-40 -left-40 w-96 h-96 bg-orange-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse delay-1000'></div>
 
-      {/* Sidebar */}
-      <aside className='w-full md:w-64 bg-[#090b0d] border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-6 shrink-0 relative z-20 justify-between'>
-        <div>
-          {/* Logo / Brand */}
-          <div className='flex items-center gap-2 mb-8'>
-            <div className='bg-amber-500 text-black p-1.5 rounded-lg font-bold flex items-center justify-center'>
-              <FaHeartbeat size={18} />
-            </div>
-            <span className='text-lg font-black tracking-tight text-white'>
-              Ubuntu<span className='text-amber-500'>Health</span>
-            </span>
-          </div>
+//       {/* Sidebar */}
+//       <aside className='w-full md:w-64 bg-[#090b0d] border-b md:border-b-0 md:border-r border-white/5 flex flex-col p-6 shrink-0 relative z-20 justify-between'>
+//         <div>
+//           {/* Logo / Brand */}
+//           <div className='flex items-center gap-2 mb-8'>
+//             <div className='bg-amber-500 text-black p-1.5 rounded-lg font-bold flex items-center justify-center'>
+//               <FaHeartbeat size={18} />
+//             </div>
+//             <span className='text-lg font-black tracking-tight text-white'>
+//               Ubuntu<span className='text-amber-500'>Health</span>
+//             </span>
+//           </div>
 
-          {/* Support Portal Tag */}
-          <div className='bg-amber-500/10 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide uppercase mb-6 flex items-center gap-2'>
-            <FaHospital />
-            <span>Support Portal</span>
-          </div>
+//           {/* Support Portal Tag */}
+//           <div className='bg-amber-500/10 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide uppercase mb-6 flex items-center gap-2'>
+//             <FaHospital />
+//             <span>Support Portal</span>
+//           </div>
 
-          {/* Navigation Links */}
-          <nav className='space-y-1.5'>
-            {menuItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                  activeTab === item.id 
-                    ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' 
-                    : 'bg-white/5 hover:bg-amber-500/10 text-gray-400 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
+//           {/* Navigation Links */}
+//           <nav className='space-y-1.5'>
+//             {menuItems.map(item => (
+//               <button
+//                 key={item.id}
+//                 onClick={() => setActiveTab(item.id)}
+//                 className={`cursor-pointer w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+//                   activeTab === item.id 
+//                     ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/10' 
+//                     : 'bg-white/5 hover:bg-amber-500/10 text-gray-400 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+//                 }`}
+//               >
+//                 {item.icon}
+//                 <span>{item.label}</span>
+//               </button>
+//             ))}
+//           </nav>
+//         </div>
 
-        {/* Logout at Bottom */}
-        <button 
-          onClick={handleLogout} 
-          className='cursor-pointer flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 px-5 py-3 rounded-xl transition-all duration-300 font-semibold text-sm hover:scale-[1.02] active:scale-95 mt-8 text-gray-400 hover:text-red-400'
-        >
-          <FaSignOutAlt />
-          Logout
-        </button>
-      </aside>
+//         {/* Logout at Bottom */}
+//         <button 
+//           onClick={handleLogout} 
+//           className='cursor-pointer flex items-center justify-center gap-2 bg-white/5 hover:bg-red-500/20 hover:border-red-500/30 border border-white/10 px-5 py-3 rounded-xl transition-all duration-300 font-semibold text-sm hover:scale-[1.02] active:scale-95 mt-8 text-gray-400 hover:text-red-400'
+//         >
+//           <FaSignOutAlt />
+//           Logout
+//         </button>
+//       </aside>
 
-      {/* Main Content */}
-      <main className='flex-1 p-6 md:p-12 overflow-y-auto relative z-10'>
-        {activeTab === 'overview' ? (
-          <div className='max-w-6xl mx-auto'>
-            {/* Header */}
-            <header className='mb-12 pb-6 border-b border-amber-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
-              <div>
-                <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Support Staff {user.fullname}</h1>
-                <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
-              </div>
-              <div className='flex items-center gap-4 self-end md:self-auto'>
-                {user.fulfillment_code && (
-                  <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
-                    <div className='flex flex-col text-left'>
-                      <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
-                      <span className='font-mono text-base font-black tracking-widest text-amber-400'>{user.fulfillment_code}</span>
-                    </div>
-                  </div>
-                )}
-                <NotificationPanel notifications={notifications} socket={socket} />
-              </div>
-            </header>
+//       {/* Main Content */}
+//       <main className='flex-1 p-6 md:p-12 overflow-y-auto relative z-10'>
+//         {activeTab === 'overview' ? (
+//           <div className='max-w-6xl mx-auto'>
+//             {/* Header */}
+//             <header className='mb-12 pb-6 border-b border-amber-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4'>
+//               <div>
+//                 <h1 className='text-3xl md:text-4xl font-extrabold tracking-tight'>Welcome, Support Staff {user.fullname}</h1>
+//                 <p className='text-gray-400 text-sm mt-1'>Org: {user.organization}</p>
+//               </div>
+//               <div className='flex items-center gap-4 self-end md:self-auto'>
+//                 {user.fulfillment_code && (
+//                   <div className='bg-white/5 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg shadow-black/20'>
+//                     <div className='flex flex-col text-left'>
+//                       <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wider'>Fulfillment Code</span>
+//                       <span className='font-mono text-base font-black tracking-widest text-amber-400'>{user.fulfillment_code}</span>
+//                     </div>
+//                   </div>
+//                 )}
+//                 <NotificationPanel notifications={notifications} socket={socket} />
+//               </div>
+//             </header>
 
-            {/* Quick Stats Grid */}
-            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
-              {[
-                { label: 'Assigned Tasks', value: '18', icon: <FaClipboardList className='text-amber-400' />, desc: '4 active' },
-                { label: 'Support Queue', value: '5', icon: <FaHospital className='text-orange-400' />, desc: '3 unresolved' },
-                { label: 'System Logs', value: '124', icon: <FaTasks className='text-yellow-400' />, desc: 'All systems normal' },
-                { label: 'Daily Events', value: '2', icon: <FaCalendarAlt className='text-red-400' />, desc: 'Next at 3:00 PM' }
-              ].map((stat, idx) => (
-                <div key={idx} className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-amber-500/30 hover:scale-[1.02] transition-all duration-300'>
-                  <div className='flex justify-between items-start mb-4'>
-                    <span className='text-gray-400 text-sm font-medium'>{stat.label}</span>
-                    <div className='bg-white/5 p-2 rounded-lg'>{stat.icon}</div>
-                  </div>
-                  <div className='text-3xl font-bold mb-1'>{stat.value}</div>
-                  <span className='text-xs text-gray-500'>{stat.desc}</span>
-                </div>
-              ))}
-            </div>
+//             {/* Quick Stats Grid */}
+//             <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12'>
+//               {[
+//                 { label: 'Assigned Tasks', value: '18', icon: <FaClipboardList className='text-amber-400' />, desc: '4 active' },
+//                 { label: 'Support Queue', value: '5', icon: <FaHospital className='text-orange-400' />, desc: '3 unresolved' },
+//                 { label: 'System Logs', value: '124', icon: <FaTasks className='text-yellow-400' />, desc: 'All systems normal' },
+//                 { label: 'Daily Events', value: '2', icon: <FaCalendarAlt className='text-red-400' />, desc: 'Next at 3:00 PM' }
+//               ].map((stat, idx) => (
+//                 <div key={idx} className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-amber-500/30 hover:scale-[1.02] transition-all duration-300'>
+//                   <div className='flex justify-between items-start mb-4'>
+//                     <span className='text-gray-400 text-sm font-medium'>{stat.label}</span>
+//                     <div className='bg-white/5 p-2 rounded-lg'>{stat.icon}</div>
+//                   </div>
+//                   <div className='text-3xl font-bold mb-1'>{stat.value}</div>
+//                   <span className='text-xs text-gray-500'>{stat.desc}</span>
+//                 </div>
+//               ))}
+//             </div>
 
-            {/* Dashboard Sections */}
-            <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-              {/* Main Area: Tasks List */}
-              <div className='lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
-                <div className='flex justify-between items-center mb-6'>
-                  <h2 className='text-xl font-bold flex items-center gap-2'>
-                    <FaClipboardList className='text-amber-400' />
-                    Daily Support Activities
-                  </h2>
-                </div>
+//             {/* Dashboard Sections */}
+//             <div className='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+//               {/* Main Area: Tasks List */}
+//               <div className='lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+//                 <div className='flex justify-between items-center mb-6'>
+//                   <h2 className='text-xl font-bold flex items-center gap-2'>
+//                     <FaClipboardList className='text-amber-400' />
+//                     Daily Support Activities
+//                   </h2>
+//                 </div>
                 
-                <div className='space-y-4'>
-                  {[
-                    { name: 'System Maintenance', condition: 'Database Backup & Health Check', time: '08:00 AM', status: 'Completed' },
-                    { name: 'Inventory Audit', condition: 'Verify Clinic Supply Stock', time: '10:00 AM', status: 'Completed' },
-                    { name: 'Registration Desk Help', condition: 'Support New Patients In-take', time: '02:00 PM', status: 'In Progress' },
-                    { name: 'Facility Audit', condition: 'Environmental Safety Checklist', time: '04:30 PM', status: 'Upcoming' }
-                  ].map((patient, idx) => (
-                    <div key={idx} className='flex justify-between items-center bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-all duration-300'>
-                      <div>
-                        <h3 className='font-semibold'>{patient.name}</h3>
-                        <p className='text-xs text-gray-400'>{patient.condition}</p>
-                      </div>
-                      <div className='text-right'>
-                        <p className='text-sm font-medium mb-1'>{patient.time}</p>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          patient.status === 'Completed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                          patient.status === 'In Progress' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                          'bg-white/5 text-gray-400 border border-white/10'
-                        }`}>
-                          {patient.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+//                 <div className='space-y-4'>
+//                   {[
+//                     { name: 'System Maintenance', condition: 'Database Backup & Health Check', time: '08:00 AM', status: 'Completed' },
+//                     { name: 'Inventory Audit', condition: 'Verify Clinic Supply Stock', time: '10:00 AM', status: 'Completed' },
+//                     { name: 'Registration Desk Help', condition: 'Support New Patients In-take', time: '02:00 PM', status: 'In Progress' },
+//                     { name: 'Facility Audit', condition: 'Environmental Safety Checklist', time: '04:30 PM', status: 'Upcoming' }
+//                   ].map((patient, idx) => (
+//                     <div key={idx} className='flex justify-between items-center bg-white/5 border border-white/5 rounded-xl p-4 hover:bg-white/10 transition-all duration-300'>
+//                       <div>
+//                         <h3 className='font-semibold'>{patient.name}</h3>
+//                         <p className='text-xs text-gray-400'>{patient.condition}</p>
+//                       </div>
+//                       <div className='text-right'>
+//                         <p className='text-sm font-medium mb-1'>{patient.time}</p>
+//                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+//                           patient.status === 'Completed' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+//                           patient.status === 'In Progress' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+//                           'bg-white/5 text-gray-400 border border-white/10'
+//                         }`}>
+//                           {patient.status}
+//                         </span>
+//                       </div>
+//                     </div>
+//                   ))}
+//                 </div>
+//               </div>
 
-              {/* Sidebar Area: Support Tools */}
-              <div className='space-y-6'>
-                <div className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
-                  <h2 className='text-xl font-bold mb-4 flex items-center gap-2'>
-                    <FaMedkit className='text-orange-400' />
-                    Support Utilities
-                  </h2>
-                  <div className='space-y-3'>
-                    {['System Health Logs', 'Directory Registry', 'Access Support Queue', 'Log General Task'].map((tool, idx) => (
-                      <button key={idx} className='cursor-pointer w-full text-left bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/20 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02]'>
-                        {tool}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : activeTab === 'appointments' ? (
-          <AppointmentsSection user={user} />
-        ) : activeTab === 'referrals' ? (
-          <ReferralsSection user={user} />
-        ) : activeTab === 'reviews' ? (
-          <ReviewsSection user={user} />
-        ) : activeTab === 'chat' ? (
-          <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
-        ) : (
-          <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
-            <FaHospital size={60} className='mx-auto mb-4 text-amber-400 animate-pulse' />
-            <h2 className='text-2xl font-bold mb-2 capitalize'>{activeTab} Section</h2>
-            <p className='text-gray-400 text-sm max-w-md mx-auto'>
-              The features for the support dashboard's {activeTab} tab will be fully implemented according to subsequent instructions.
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-};
+//               {/* Sidebar Area: Support Tools */}
+//               <div className='space-y-6'>
+//                 <div className='bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6'>
+//                   <h2 className='text-xl font-bold mb-4 flex items-center gap-2'>
+//                     <FaMedkit className='text-orange-400' />
+//                     Support Utilities
+//                   </h2>
+//                   <div className='space-y-3'>
+//                     {['System Health Logs', 'Directory Registry', 'Access Support Queue', 'Log General Task'].map((tool, idx) => (
+//                       <button key={idx} className='cursor-pointer w-full text-left bg-white/5 hover:bg-amber-500/10 border border-white/10 hover:border-amber-500/20 py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-[1.02]'>
+//                         {tool}
+//                       </button>
+//                     ))}
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         ) : activeTab === 'appointments' ? (
+//           <AppointmentsSection user={user} />
+//         ) : activeTab === 'referrals' ? (
+//           <ReferralsSection user={user} />
+//         ) : activeTab === 'reviews' ? (
+//           <ReviewsSection user={user} />
+//         ) : activeTab === 'chat' ? (
+//           <ChatRoom user={user} socket={socket} chatMessages={chatMessages} contacts={contacts} />
+//         ) : (
+//           <div className='max-w-4xl mx-auto text-center py-20 bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl'>
+//             <FaHospital size={60} className='mx-auto mb-4 text-amber-400 animate-pulse' />
+//             <h2 className='text-2xl font-bold mb-2 capitalize'>{activeTab} Section</h2>
+//             <p className='text-gray-400 text-sm max-w-md mx-auto'>
+//               The features for the support dashboard's {activeTab} tab will be fully implemented according to subsequent instructions.
+//             </p>
+//           </div>
+//         )}
+//       </main>
+//     </div>
+//   );
+// };
 
 // --- Patient Dashboard Component ---
 // const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-//   const [activeTab, setActiveTab] = React.useState('overview');
+//   const [activeTab, setActiveTab] = useState('overview');
 
 //   const menuItems = [
 //     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
@@ -769,12 +769,12 @@ const OtherDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
 // --- CHW Dashboard Component ---
 const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
-  const [patients, setPatients] = React.useState([]);
-  const [loadingPatients, setLoadingPatients] = React.useState(true);
-  const [selectedPatientId, setSelectedPatientId] = React.useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [patients, setPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchPatients = async () => {
       try {
         setLoadingPatients(true);
@@ -1010,13 +1010,13 @@ const ChwDashboard = ({ user, handleLogout, socket, notifications, chatMessages,
 
 // --- Reusable Appointments Section Component ---
 const AppointmentsSection = ({ user }) => {
-  const [appointments, setAppointments] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [viewRecordPatientId, setViewRecordPatientId] = React.useState(null);
-  const [organizations, setOrganizations] = React.useState([]);
-  const [careGivers, setCareGivers] = React.useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [viewRecordPatientId, setViewRecordPatientId] = useState(null);
+  const [organizations, setOrganizations] = useState([]);
+  const [careGivers, setCareGivers] = useState([]);
   
-  const [newAppointment, setNewAppointment] = React.useState({
+  const [newAppointment, setNewAppointment] = useState({
     organization: user.organization || '',
     care_giver: '',
     reason: '',
@@ -1036,7 +1036,7 @@ const AppointmentsSection = ({ user }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchAppointments();
 
     const fetchOrgs = async () => {
@@ -1050,7 +1050,7 @@ const AppointmentsSection = ({ user }) => {
     fetchOrgs();
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchCaregivers = async () => {
       if (!newAppointment.organization) {
         setCareGivers([]);
@@ -1339,11 +1339,11 @@ const AppointmentsSection = ({ user }) => {
 
 // --- Reusable Reviews Section Component ---
 // const ReviewsSection = ({ user }) => {
-//   const [reviews, setReviews] = React.useState([]);
-//   const [loading, setLoading] = React.useState(true);
-//   const [newReview, setNewReview] = React.useState({ rating: 5, comment: '' });
-//   const [editingId, setEditingId] = React.useState(null);
-//   const [editForm, setEditForm] = React.useState({ rating: 5, comment: '' });
+//   const [reviews, setReviews] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
+//   const [editingId, setEditingId] = useState(null);
+//   const [editForm, setEditForm] = useState({ rating: 5, comment: '' });
 
 //   const fetchReviews = async () => {
 //     try {
@@ -1357,7 +1357,7 @@ const AppointmentsSection = ({ user }) => {
 //     }
 //   };
 
-//   React.useEffect(() => {
+//   useEffect(() => {
 //     fetchReviews();
 //   }, []);
 
@@ -1611,7 +1611,7 @@ const AppointmentsSection = ({ user }) => {
 
 // --- Reusable Health Record Section Component ---
 const HealthRecordSection = ({ patientId, role, onClose }) => {
-  const [data, setData] = React.useState({
+  const [data, setData] = useState({
     records: [],
     routines: [],
     appointments: [],
@@ -1619,30 +1619,30 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     organizationWatermark: 'Mzansi Health',
     patientInfo: null
   });
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Filters state
-  const [period, setPeriod] = React.useState('all');
-  const [includeAppointments, setIncludeAppointments] = React.useState(false);
-  const [includeReferrals, setIncludeReferrals] = React.useState(false);
+  const [period, setPeriod] = useState('all');
+  const [includeAppointments, setIncludeAppointments] = useState(false);
+  const [includeReferrals, setIncludeReferrals] = useState(false);
 
   // Editing / adding state
-  const [showAddRecord, setShowAddRecord] = React.useState(false);
-  const [editingRecord, setEditingRecord] = React.useState(null);
-  const [newRecordData, setNewRecordData] = React.useState({
+  const [showAddRecord, setShowAddRecord] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [newRecordData, setNewRecordData] = useState({
     blood_group: '', weight: '', height: '', temperature: '', blood_pressure: '', heart_rate: '',
     symptoms: '', allergies: '', diagnosis: '', procedures: '', admission_date: '', release_date: '',
     prescription: '', long_term_treatment: false, care_giver: ''
   });
 
   // Verification state (required for editing)
-  const [verification, setVerification] = React.useState({ patient_name: '', fulfillment_key: '' });
+  const [verification, setVerification] = useState({ patient_name: '', fulfillment_key: '' });
 
   // Routine state
-  const [showAddRoutine, setShowAddRoutine] = React.useState(null); // record_id
-  const [editingRoutine, setEditingRoutine] = React.useState(null);
-  const [routineData, setRoutineData] = React.useState({
+  const [showAddRoutine, setShowAddRoutine] = useState(null); // record_id
+  const [editingRoutine, setEditingRoutine] = useState(null);
+  const [routineData, setRoutineData] = useState({
     routine_range: 'weekly',
     routine_day: 'Monday',
     description: '',
@@ -1669,7 +1669,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (patientId) {
       fetchData();
     }
@@ -2434,18 +2434,18 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
 
 // --- Reusable Referrals Section Component ---
 const ReferralsSection = ({ user }) => {
-  const [referrals, setReferrals] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [patients, setPatients] = React.useState([]);
-  const [chws, setChws] = React.useState([]);
-  const [organizations, setOrganizations] = React.useState([]);
-  const [selectedReferral, setSelectedReferral] = React.useState(null);
-  const [choiceReferral, setChoiceReferral] = React.useState(null);
-  const [viewRecordPatientId, setViewRecordPatientId] = React.useState(null);
+  const [referrals, setReferrals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [patients, setPatients] = useState([]);
+  const [chws, setChws] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [selectedReferral, setSelectedReferral] = useState(null);
+  const [choiceReferral, setChoiceReferral] = useState(null);
+  const [viewRecordPatientId, setViewRecordPatientId] = useState(null);
   
   // Dynamic staff members for selected destination organization
-  const [staffList, setStaffList] = React.useState([]);
-  const [editStaffList, setEditStaffList] = React.useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [editStaffList, setEditStaffList] = useState([]);
 
   // Predefined departments list
   const DEPARTMENTS = [
@@ -2456,7 +2456,7 @@ const ReferralsSection = ({ user }) => {
   ];
 
   // Creation form state
-  const [newReferral, setNewReferral] = React.useState({
+  const [newReferral, setNewReferral] = useState({
     patient_id: '',
     organization_to: '',
     department_to: '',
@@ -2467,8 +2467,8 @@ const ReferralsSection = ({ user }) => {
   });
 
   // Editing state
-  const [editingId, setEditingId] = React.useState(null);
-  const [editForm, setEditForm] = React.useState({
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
     patient_id: '',
     organization_to: '',
     department_to: '',
@@ -2535,7 +2535,7 @@ const ReferralsSection = ({ user }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchReferrals();
 
     if (canManage) {
@@ -2573,7 +2573,7 @@ const ReferralsSection = ({ user }) => {
   }, [user.role]);
 
   // Dynamically load staff for newReferral organization destination
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchStaffForNew = async () => {
       if (!newReferral.organization_to) {
         setStaffList([]);
@@ -2590,7 +2590,7 @@ const ReferralsSection = ({ user }) => {
   }, [newReferral.organization_to]);
 
   // Dynamically load staff for editForm organization destination
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchStaffForEdit = async () => {
       if (!editForm.organization_to) {
         setEditStaffList([]);
@@ -3383,22 +3383,22 @@ const ReferralsSection = ({ user }) => {
 
 // --- Admin Dashboard Component ---
 const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [users, setUsers] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-  const [organizationsCount, setOrganizationsCount] = React.useState(0);
-  const [activeTab, setActiveTab] = React.useState('overview');
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [organizationsCount, setOrganizationsCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('overview');
 
   // --- Patients Database ---
-  const [patients, setPatients] = React.useState([]);
-  const [selectedPatientId, setSelectedPatientId] = React.useState(null);
+  const [patients, setPatients] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setSelectedPatientId(null);
   }, [activeTab]);
 
 
-  const [chws, setChws] = React.useState([
+  const [chws, setChws] = useState([
     { id: 1, fullname: "Sizwe Dube", identity: "9102145321087", phone_number: "0734445555", email: "sizwe.dube@ubuntuhealth.org", area: "Khayelitsha Site C", tasks: [
       { id: 1, title: "Deliver immunizations", desc: "Immunization follow-up for newborn in Household 4", priority: "High", deadline: "2026-06-14", status: "Assigned" },
       { id: 2, title: "TB screening", desc: "Screen contacts of active TB patient in Block A", priority: "High", deadline: "2026-06-10", status: "Completed" }
@@ -3408,12 +3408,12 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
     ]}
   ]);
 
-  const [appointments, setAppointments] = React.useState([
+  const [appointments, setAppointments] = useState([
     { id: 1, patientName: "Thabo Cele", staffName: "Dr. Lerato Sibanda", date: "2026-06-16", time: "09:30 AM", status: "Scheduled" },
     { id: 2, patientName: "Johan Botha", staffName: "Dr. Alan Mercer", date: "2026-06-17", time: "11:00 AM", status: "Scheduled" }
   ]);
 
-  const [staff, setStaff] = React.useState([
+  const [staff, setStaff] = useState([
     { id: 1, fullname: "Dr. Lerato Sibanda", role: "General Practitioner", email: "l.sibanda@ubuntuhealth.org", phone_number: "0721112222", availability: "Available" },
     { id: 2, fullname: "Dr. Alan Mercer", role: "Cardiologist", email: "a.mercer@ubuntuhealth.org", phone_number: "0813334444", availability: "On Leave" },
     { id: 3, fullname: "Sister Helen Ndlovu", role: "Senior Nurse", email: "h.ndlovu@ubuntuhealth.org", phone_number: "0625556666", availability: "On Duty" }
@@ -3424,7 +3424,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
 
   // --- Form Input States ---
-  const [newPatient, setNewPatient] = React.useState({
+  const [newPatient, setNewPatient] = useState({
     fullname: '',
     identity: '',
     gender: 'Male',
@@ -3441,7 +3441,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
     nok_email: '',
     chw_id: ''
   });
-  const [newChw, setNewChw] = React.useState({
+  const [newChw, setNewChw] = useState({
     employee_id: '',
     fullname: '',
     identity: '',
@@ -3449,16 +3449,16 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
     email: '',
     phone_number: ''
   });
-  const [newTask, setNewTask] = React.useState({ title: '', desc: '', priority: 'High', deadline: '' });
-  const [newAppointment, setNewAppointment] = React.useState({ patientName: '', staffName: '', date: '', time: '' });
+  const [newTask, setNewTask] = useState({ title: '', desc: '', priority: 'High', deadline: '' });
+  const [newAppointment, setNewAppointment] = useState({ patientName: '', staffName: '', date: '', time: '' });
   // newReview state removed to use database reviews in ReviewsSection
   
 
 
-  const [selectedChwId, setSelectedChwId] = React.useState(1);
+  const [selectedChwId, setSelectedChwId] = useState(1);
 
   // --- Fetch Backend Accounts ---
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchAdminData = async () => {
       try {
         setLoading(true);
@@ -4311,7 +4311,7 @@ const AdminDashboard = ({ user, handleLogout, socket, notifications, chatMessage
 
 // --- Reusable Notification Panel ---
 const NotificationPanel = ({ notifications, socket }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleMarkRead = (id) => {
@@ -4383,15 +4383,15 @@ const NotificationPanel = ({ notifications, socket }) => {
 // This component handles real-time messaging between users with role-based theming
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   // State for the currently selected contact
-  const [selectedContact, setSelectedContact] = React.useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
   // State for the current message input
-  const [messageInput, setMessageInput] = React.useState('');
+  const [messageInput, setMessageInput] = useState('');
   // Reference to the chat container for auto-scrolling
-  const chatContainerRef = React.useRef(null);
+  const chatContainerRef = useRef(null);
   // Local messages for the current conversation
-  const [localMessages, setLocalMessages] = React.useState([]);
+  const [localMessages, setLocalMessages] = useState([]);
   // Track if messages have been marked as read for the current conversation
-  const [hasMarkedRead, setHasMarkedRead] = React.useState(false);
+  const [hasMarkedRead, setHasMarkedRead] = useState(false);
 
   // Determine the user's role and create a unique chat ID
   const role = user.role?.toLowerCase();
@@ -4445,7 +4445,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Filter messages for the current conversation
    * Includes direct messages, group announcements, and admin broadcasts
    */
-  const getActiveMessages = React.useCallback(() => {
+  const getActiveMessages = useCallback(() => {
     if (!selectedContact) return [];
     
     return chatMessages.filter(m => {
@@ -4488,7 +4488,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * This function is called when a conversation is opened
    * It ensures the unread badge is removed from the contact
    */
-  const markMessagesAsRead = React.useCallback(() => {
+  const markMessagesAsRead = useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
 
     // Find all unread messages from this contact
@@ -4529,7 +4529,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Update local messages whenever chatMessages or selectedContact changes
    * This ensures the conversation view stays in sync with the global state
    */
-  React.useEffect(() => {
+  useEffect(() => {
     const filtered = getActiveMessages();
     setLocalMessages(filtered);
   }, [chatMessages, selectedContact, getActiveMessages]);
@@ -4539,7 +4539,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * This triggers the read receipt process for the opened conversation
    * The unread badge will be removed once messages are marked as read
    */
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedContact) {
       // Reset the mark read flag when a new contact is selected
       setHasMarkedRead(false);
@@ -4552,7 +4552,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Auto-scroll to the bottom of the chat when new messages arrive
    * This provides a smooth user experience when receiving or sending messages
    */
-  React.useEffect(() => {
+  useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
@@ -4735,12 +4735,12 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
 // --- Main Dashboard Dispatcher ---
 const Dashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
-  const [socket, setSocket] = React.useState(null);
-  const [notifications, setNotifications] = React.useState([]);
-  const [chatMessages, setChatMessages] = React.useState([]);
-  const [contacts, setContacts] = React.useState([]);
+  const [socket, setSocket] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [contacts, setContacts] = useState([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!user) return;
 
     const socketUrl = (import.meta.env.PROD && import.meta.env.VITE_API_BASE_URL) ? import.meta.env.VITE_API_BASE_URL : (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
