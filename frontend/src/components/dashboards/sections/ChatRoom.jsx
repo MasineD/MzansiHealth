@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useState , useEffect } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
+
 const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => {
   // State for the currently selected contact
-  const [selectedContact, setSelectedContact] = React.useState(null);
+  const [selectedContact, setSelectedContact] = useState(null);
   // State for the current message input
-  const [messageInput, setMessageInput] = React.useState('');
+  const [messageInput, setMessageInput] = useState('');
   // Reference to the chat container for auto-scrolling
-  const chatContainerRef = React.useRef(null);
+  const chatContainerRef = useRef(null);
   // Local messages for the current conversation
-  const [localMessages, setLocalMessages] = React.useState([]);
+  const [localMessages, setLocalMessages] = useState([]);
   // Track if messages have been marked as read for the current conversation
-  const [hasMarkedRead, setHasMarkedRead] = React.useState(false);
+  const [hasMarkedRead, setHasMarkedRead] = useState(false);
 
   // Determine the user's role and create a unique chat ID
   const role = user.role?.toLowerCase();
@@ -66,7 +67,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Filter messages for the current conversation
    * Includes direct messages, group announcements, and admin broadcasts
    */
-  const getActiveMessages = React.useCallback(() => {
+  const getActiveMessages = useCallback(() => {
     if (!selectedContact) return [];
     
     return chatMessages.filter(m => {
@@ -109,7 +110,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * This function is called when a conversation is opened
    * It ensures the unread badge is removed from the contact
    */
-  const markMessagesAsRead = React.useCallback(() => {
+  const markMessagesAsRead = useCallback(() => {
     if (!selectedContact || !socket || hasMarkedRead) return;
 
     // Find all unread messages from this contact
@@ -150,7 +151,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Update local messages whenever chatMessages or selectedContact changes
    * This ensures the conversation view stays in sync with the global state
    */
-  React.useEffect(() => {
+  useEffect(() => {
     const filtered = getActiveMessages();
     setLocalMessages(filtered);
   }, [chatMessages, selectedContact, getActiveMessages]);
@@ -160,7 +161,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * This triggers the read receipt process for the opened conversation
    * The unread badge will be removed once messages are marked as read
    */
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedContact) {
       // Reset the mark read flag when a new contact is selected
       setHasMarkedRead(false);
@@ -173,7 +174,7 @@ const ChatRoom = ({ user, socket, chatMessages, contacts, setChatMessages }) => 
    * Auto-scroll to the bottom of the chat when new messages arrive
    * This provides a smooth user experience when receiving or sending messages
    */
-  React.useEffect(() => {
+  useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
