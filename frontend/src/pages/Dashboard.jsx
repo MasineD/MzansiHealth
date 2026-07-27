@@ -10,7 +10,7 @@ import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipb
 import ReviewsSection from '../components/dashboards/sections/ReviewsSection.jsx';
 import PatientDashboard from '../components/dashboards/PatientDashboard.jsx';
 import OtherDashboard from '../components/dashboards/OtherDashboard.jsx';
-import ChwDashboard from '../components/dashboards/ChwDashboard.jsx';
+// import ChwDashboard from '../components/dashboards/ChwDashboard.jsx';
 
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
 // const API_URL = import.meta.env.VITE_API_BASE_URL;
