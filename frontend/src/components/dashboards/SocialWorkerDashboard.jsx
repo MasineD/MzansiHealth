@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
@@ -7,8 +7,9 @@ import ChatRoom from './ChatRoom';
 import NotificationPanel from './NotificationPanel';
 import ReferralsSection from './ReferralsSection';
 import ReviewsSection from './ReviewsSection';
+
 const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
@@ -192,6 +193,5 @@ const SocialWorkerDashboard = ({ user, handleLogout, socket, notifications, chat
     </div>
   );
 };
-
 
 export default SocialWorkerDashboard;
