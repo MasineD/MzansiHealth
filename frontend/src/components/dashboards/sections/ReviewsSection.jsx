@@ -276,3 +276,5 @@ const ReviewsSection = ({ user }) => {
     </div>
   );
 };
+
+export default ReviewsSection;
