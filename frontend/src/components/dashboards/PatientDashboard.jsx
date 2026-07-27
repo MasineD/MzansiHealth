@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
-import AppointmentsSection from './AppointmentsSection';
-import ChatRoom from './ChatRoom';
-import HealthRecordSection from './HealthRecordSection';
-import NotificationPanel from './NotificationPanel';
-import ReferralsSection from './ReferralsSection';
-import ReviewsSection from './ReviewsSection';
+import AppointmentsSection from './sections/AppointmentsSection';
+import ChatRoom from './sections/ChatRoom';
+import HealthRecordSection from './sections/HealthRecordSection';
+import NotificationPanel from './sections/NotificationPanel';
+import ReferralsSection from './sections/ReferralsSection';
+import ReviewsSection from './sections/ReviewsSection';
+
 const PatientDashboard = ({ user, handleLogout, socket, notifications, chatMessages, contacts }) => {
-  const [activeTab, setActiveTab] = React.useState('overview');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: <FaTasks /> },
