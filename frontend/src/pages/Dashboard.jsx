@@ -14,7 +14,7 @@ import ChatRoom from '../components/dashboards/sections/ChatRoom.jsx';
 import NotificationPanel from '../components/dashboards/sections/NotificationPanel.jsx';
 import ReferralsSection from '../components/dashboards/sections/ReferralsSection.jsx';
 // import HealthRecordSection from '../components/dashboard/sections/HealthRecordSection.jsx';
-import OtherDashboard from '../components/dashboards/OtherDashboard.jsx';
+import OtherDashboard from '../components/dashboards/OtherDashboard';
 // import ChwDashboard from '../components/dashboards/ChwDashboard.jsx';
 
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
