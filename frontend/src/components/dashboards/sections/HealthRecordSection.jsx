@@ -1,15 +1,14 @@
 // ============ A reusable healthrecords component===========
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import { FaUserMd, FaUser, FaUsers, FaCalendarAlt, FaPrescriptionBottle, FaClipboardList, FaPlus, FaHeartbeat, FaRunning, FaTint, FaSignOutAlt, FaMedkit, FaFileMedicalAlt, FaTasks,FaExchangeAlt,FaStar,FaComments,FaClock,FaHospital,FaShieldAlt,FaPlusCircle,FaPaperPlane,FaBell,FaCheck } from 'react-icons/fa';
 
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL; // Target the backend server
-// const API_URL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true; // This will allow axios to send cookies with requests, which is necessary for session management
 
 const HealthRecordSection = ({ patientId, role, onClose }) => {
-  const [data, setData] = React.useState({
+  const [data, setData] = useState({
     records: [],
     routines: [],
     appointments: [],
@@ -17,30 +16,30 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     organizationWatermark: 'Mzansi Health',
     patientInfo: null
   });
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Filters state
-  const [period, setPeriod] = React.useState('all');
-  const [includeAppointments, setIncludeAppointments] = React.useState(false);
-  const [includeReferrals, setIncludeReferrals] = React.useState(false);
+  const [period, setPeriod] = useState('all');
+  const [includeAppointments, setIncludeAppointments] = useState(false);
+  const [includeReferrals, setIncludeReferrals] = useState(false);
 
   // Editing / adding state
-  const [showAddRecord, setShowAddRecord] = React.useState(false);
-  const [editingRecord, setEditingRecord] = React.useState(null);
-  const [newRecordData, setNewRecordData] = React.useState({
+  const [showAddRecord, setShowAddRecord] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [newRecordData, setNewRecordData] = useState({
     blood_group: '', weight: '', height: '', temperature: '', blood_pressure: '', heart_rate: '',
     symptoms: '', allergies: '', diagnosis: '', procedures: '', admission_date: '', release_date: '',
     prescription: '', long_term_treatment: false, care_giver: ''
   });
 
   // Verification state (required for editing)
-  const [verification, setVerification] = React.useState({ patient_name: '', fulfillment_key: '' });
+  const [verification, setVerification] = useState({ patient_name: '', fulfillment_key: '' });
 
   // Routine state
-  const [showAddRoutine, setShowAddRoutine] = React.useState(null); // record_id
-  const [editingRoutine, setEditingRoutine] = React.useState(null);
-  const [routineData, setRoutineData] = React.useState({
+  const [showAddRoutine, setShowAddRoutine] = useState(null); // record_id
+  const [editingRoutine, setEditingRoutine] = useState(null);
+  const [routineData, setRoutineData] = useState({
     routine_range: 'weekly',
     routine_day: 'Monday',
     description: '',
@@ -67,7 +66,7 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (patientId) {
       fetchData();
     }
@@ -829,6 +828,5 @@ const HealthRecordSection = ({ patientId, role, onClose }) => {
     </div>
   );
 };
-
 
 export default HealthRecordSection;
